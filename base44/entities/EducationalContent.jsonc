@@ -1,0 +1,50 @@
+{
+  "name": "EducationalContent",
+  "description": "Learn library articles and lessons.",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "basics",
+        "strategies",
+        "markets",
+        "tools",
+        "glossary"
+      ],
+      "default": "basics"
+    },
+    "level": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced"
+      ],
+      "default": "beginner"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string",
+      "description": "Markdown body"
+    },
+    "read_time": {
+      "type": "number",
+      "description": "Minutes"
+    },
+    "icon": {
+      "type": "string",
+      "default": "BookOpen"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "summary"
+  ]
+}

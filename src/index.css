@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    /* InvestBW — premium fintech design system
+       Primary: deep emerald (trust, growth, Botswana nature)
+       Accent:  sky blue (Botswana flag) */
+    --background: 150 20% 99%;
+    --foreground: 165 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 165 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 165 25% 12%;
+    --primary: 162 68% 20%;
+    --primary-foreground: 150 30% 98%;
+    --primary-soft: 162 60% 94%;
+    --secondary: 165 15% 96%;
+    --secondary-foreground: 165 25% 18%;
+    --muted: 165 14% 95%;
+    --muted-foreground: 168 10% 42%;
+    --accent: 199 85% 45%;
+    --accent-foreground: 0 0% 100%;
+    --accent-soft: 199 80% 94%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 60% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --border: 168 14% 90%;
+    --input: 168 14% 88%;
+    --ring: 162 68% 20%;
+    --chart-1: 162 68% 30%;
+    --chart-2: 199 85% 45%;
+    --chart-3: 142 55% 48%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 265 65% 58%;
+    --radius: 0.75rem;
+    --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 165 25% 14%;
+    --sidebar-primary: 162 68% 20%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 162 60% 94%;
+    --sidebar-accent-foreground: 162 68% 20%;
+    --sidebar-border: 168 14% 90%;
+    --sidebar-ring: 162 68% 20%;
+  }
+  .dark {
+    --background: 168 30% 6%;
+    --foreground: 150 20% 96%;
+    --card: 168 28% 9%;
+    --card-foreground: 150 20% 96%;
+    --popover: 168 28% 9%;
+    --popover-foreground: 150 20% 96%;
+    --primary: 162 65% 42%;
+    --primary-foreground: 168 30% 8%;
+    --primary-soft: 162 40% 18%;
+    --secondary: 168 20% 16%;
+    --secondary-foreground: 150 20% 96%;
+    --muted: 168 20% 15%;
+    --muted-foreground: 165 12% 62%;
+    --accent: 199 80% 55%;
+    --accent-foreground: 168 30% 8%;
+    --accent-soft: 199 40% 18%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 55% 52%;
+    --warning: 38 88% 58%;
+    --border: 168 18% 18%;
+    --input: 168 18% 20%;
+    --ring: 162 65% 42%;
+    --sidebar-background: 168 30% 7%;
+    --sidebar-foreground: 150 20% 92%;
+    --sidebar-primary: 162 65% 42%;
+    --sidebar-primary-foreground: 168 30% 8%;
+    --sidebar-accent: 168 20% 16%;
+    --sidebar-accent-foreground: 162 65% 52%;
+    --sidebar-border: 168 18% 16%;
+    --sidebar-ring: 162 65% 42%;
+  }
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+  h1, h2, h3, h4, h5 {
+    @apply font-heading tracking-tight;
+  }
+}
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .bg-grid {
+    background-image: radial-gradient(hsl(162 30% 80% / 0.25) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}

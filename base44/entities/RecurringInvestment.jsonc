@@ -1,0 +1,54 @@
+{
+  "name": "RecurringInvestment",
+  "description": "Auto-invest schedule for a user.",
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "investment_id": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "bi-weekly",
+        "monthly"
+      ],
+      "default": "monthly"
+    },
+    "next_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "ticker",
+    "name",
+    "amount",
+    "frequency"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

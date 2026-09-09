@@ -1,0 +1,43 @@
+{
+  "name": "Watchlist",
+  "description": "Instruments a user is tracking.",
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "market": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number"
+    },
+    "daily_change_percent": {
+      "type": "number"
+    },
+    "investment_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticker",
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

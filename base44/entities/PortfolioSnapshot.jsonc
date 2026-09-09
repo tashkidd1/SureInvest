@@ -1,0 +1,48 @@
+{
+  "name": "PortfolioSnapshot",
+  "description": "Historical snapshot of a user's portfolio value over time, per account space (demo/real).",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "total_value": {
+      "type": "number"
+    },
+    "invested_value": {
+      "type": "number"
+    },
+    "cash_value": {
+      "type": "number"
+    },
+    "pl": {
+      "type": "number",
+      "description": "Unrealised profit/loss"
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Account space this snapshot belongs to: demo (virtual simulation) or real (empty real-account space)"
+    }
+  },
+  "required": [
+    "date",
+    "total_value"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

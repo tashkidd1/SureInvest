@@ -1,0 +1,97 @@
+{
+  "name": "Transaction",
+  "description": "Simulated account activity: buys, sells, deposits, withdrawals, dividends, fees, and goal contributions. amount is the BWP cash impact (signed). price/units are in the asset's native currency; fx_rate is the BWP-per-native-unit rate used at trade time. account_type separates the user's Demo (virtual simulation) and Real account spaces.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell",
+        "deposit",
+        "withdrawal",
+        "dividend",
+        "fee",
+        "goal_contribution"
+      ],
+      "default": "buy"
+    },
+    "ticker": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "units": {
+      "type": "number",
+      "default": 0
+    },
+    "price": {
+      "type": "number",
+      "default": 0,
+      "description": "Price per unit in the asset's native currency"
+    },
+    "currency": {
+      "type": "string",
+      "default": "BWP",
+      "description": "Native currency of the traded asset"
+    },
+    "fx_rate": {
+      "type": "number",
+      "description": "BWP per 1 native currency unit at trade time (1 for BWP assets)"
+    },
+    "fees": {
+      "type": "number",
+      "default": 0
+    },
+    "amount": {
+      "type": "number",
+      "description": "Total cash impact in BWP (positive in, negative out)"
+    },
+    "legacy": {
+      "type": "boolean",
+      "default": false,
+      "description": "true for pre-multi-currency trades whose native amount was restated to BWP during migration"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "pending",
+        "failed"
+      ],
+      "default": "completed"
+    },
+    "description": {
+      "type": "string"
+    },
+    "client_ref": {
+      "type": "string",
+      "description": "Client-supplied idempotency key to prevent duplicate trade execution."
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Account space this record belongs to: demo (virtual simulation) or real (empty real-account space)"
+    }
+  },
+  "required": [
+    "type",
+    "amount"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

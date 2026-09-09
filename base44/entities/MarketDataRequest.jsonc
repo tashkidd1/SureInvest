@@ -1,0 +1,64 @@
+{
+  "name": "MarketDataRequest",
+  "description": "Server-side log of external market-data provider requests. Backs the centralized daily request budget (Mansa) and safe observability. Written by the market-data refresh service only; never contains secrets or credentials.",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "mansa",
+        "twelve_data"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "description": "Request category: bse_snapshot, global_quotes, or usd_bwp_fx"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ],
+      "default": "success"
+    },
+    "http_status": {
+      "type": "number"
+    },
+    "securities_updated": {
+      "type": "number",
+      "default": 0
+    },
+    "error_summary": {
+      "type": "string",
+      "description": "Safe, secret-free error summary"
+    }
+  },
+  "required": [
+    "provider",
+    "category",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

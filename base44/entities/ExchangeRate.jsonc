@@ -1,0 +1,55 @@
+{
+  "name": "ExchangeRate",
+  "description": "Cached currency exchange rate used to convert asset prices into the account currency (BWP). Provider-independent: refreshed from Twelve Data when available, otherwise a configurable fallback. Read by all users; written by admins only.",
+  "type": "object",
+  "properties": {
+    "base": {
+      "type": "string",
+      "description": "Base currency, e.g. USD"
+    },
+    "quote": {
+      "type": "string",
+      "description": "Quote currency, e.g. BWP"
+    },
+    "rate": {
+      "type": "number",
+      "description": "1 base currency = rate quote currency"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "twelve_data",
+        "fallback",
+        "manual"
+      ],
+      "default": "fallback"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "base",
+    "quote",
+    "rate"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

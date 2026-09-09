@@ -1,0 +1,46 @@
+{
+  "name": "CashAccount",
+  "description": "A user's simulated cash balance, one per account space (demo/real). account_type separates the user's Demo (virtual simulation) and Real account spaces.",
+  "type": "object",
+  "properties": {
+    "balance": {
+      "type": "number",
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "BWP"
+    },
+    "available": {
+      "type": "number",
+      "description": "Available to invest"
+    },
+    "label": {
+      "type": "string",
+      "default": "Demo Cash Account"
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Account space: demo (virtual simulation) or real (empty real-account space)"
+    }
+  },
+  "required": [
+    "balance"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

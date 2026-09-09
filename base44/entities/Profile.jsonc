@@ -1,0 +1,78 @@
+{
+  "name": "Profile",
+  "description": "Extended user profile / preferences (complements built-in User).",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "type": "string"
+    },
+    "first_name": {
+      "type": "string"
+    },
+    "last_name": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "base_currency": {
+      "type": "string",
+      "default": "BWP"
+    },
+    "risk_tolerance": {
+      "type": "string",
+      "enum": [
+        "conservative",
+        "moderate",
+        "aggressive"
+      ],
+      "default": "moderate"
+    },
+    "experience_level": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "some",
+        "experienced"
+      ],
+      "default": "beginner"
+    },
+    "primary_goal": {
+      "type": "string",
+      "enum": [
+        "wealth",
+        "retirement",
+        "education",
+        "home",
+        "emergency",
+        "general",
+        "other"
+      ],
+      "default": "general"
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_mode": {
+      "type": "boolean",
+      "default": true
+    },
+    "country": {
+      "type": "string",
+      "default": "Botswana"
+    }
+  },
+  "required": [],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

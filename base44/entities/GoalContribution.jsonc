@@ -1,0 +1,42 @@
+{
+  "name": "GoalContribution",
+  "description": "A virtual contribution made toward a goal. account_type separates the user's Demo (virtual simulation) and Real account spaces.",
+  "type": "object",
+  "properties": {
+    "goal_id": {
+      "type": "string",
+      "description": "Referenced Goal id"
+    },
+    "goal_name": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Account space this contribution belongs to: demo (virtual simulation) or real (empty real-account space)"
+    }
+  },
+  "required": [
+    "goal_id",
+    "amount"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

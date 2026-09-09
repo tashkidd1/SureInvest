@@ -1,0 +1,143 @@
+{
+  "name": "Investment",
+  "description": "Curated simulated investment catalogue (Botswana + global). Shared across all users; written by admins only.",
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string",
+      "description": "Trading symbol, e.g. FNBB or AAPL"
+    },
+    "name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "equity",
+        "etf",
+        "reit",
+        "bond",
+        "cash",
+        "digital"
+      ],
+      "default": "equity"
+    },
+    "market": {
+      "type": "string",
+      "enum": [
+        "botswana",
+        "global"
+      ],
+      "default": "botswana"
+    },
+    "sector": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "BSE",
+        "JSE",
+        "NYSE",
+        "NASDAQ",
+        "LSE",
+        "Crypto"
+      ],
+      "default": "BSE"
+    },
+    "currency": {
+      "type": "string",
+      "default": "BWP"
+    },
+    "price": {
+      "type": "number",
+      "description": "Current cached/seeded price"
+    },
+    "previous_close": {
+      "type": "number"
+    },
+    "daily_change": {
+      "type": "number"
+    },
+    "daily_change_percent": {
+      "type": "number"
+    },
+    "market_cap": {
+      "type": "number"
+    },
+    "pe_ratio": {
+      "type": "number"
+    },
+    "dividend_yield": {
+      "type": "number"
+    },
+    "dividend_frequency": {
+      "type": "string",
+      "enum": [
+        "none",
+        "quarterly",
+        "semi-annual",
+        "annual"
+      ],
+      "default": "none"
+    },
+    "description": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "historical_prices": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "data_source": {
+      "type": "string",
+      "enum": [
+        "seeded",
+        "twelve_data",
+        "mansa"
+      ],
+      "default": "seeded"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "ticker",
+    "name",
+    "category",
+    "market",
+    "price"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

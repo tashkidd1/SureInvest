@@ -1,0 +1,37 @@
+{
+  "name": "AppSetting",
+  "description": "Admin-controlled application settings (key/value). E.g. 'show_seeded_assets' controls whether seeded demo market assets appear in the user-facing catalogue. Readable by all authenticated users; written by admins only.",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique setting key, e.g. show_seeded_assets"
+    },
+    "value": {
+      "type": "string",
+      "description": "Setting value as a string, e.g. 'true' / 'false'"
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

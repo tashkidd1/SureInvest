@@ -1,0 +1,66 @@
+{
+  "name": "Holding",
+  "description": "A simulated position held by a user in their portfolio. Native price/cost are kept in the asset's currency; avg_cost_bwp is the cost basis in the account currency (BWP) for correct multi-currency P/L. account_type separates the user's Demo (virtual simulation) and Real account spaces.",
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "units": {
+      "type": "number",
+      "minimum": 0
+    },
+    "avg_cost": {
+      "type": "number",
+      "description": "Average cost per unit in the asset's native currency"
+    },
+    "avg_cost_bwp": {
+      "type": "number",
+      "description": "Average cost per unit in the account currency (BWP), for P/L valuation"
+    },
+    "current_price": {
+      "type": "number",
+      "description": "Current price per unit in the asset's native currency"
+    },
+    "currency": {
+      "type": "string",
+      "default": "BWP"
+    },
+    "sector": {
+      "type": "string"
+    },
+    "investment_id": {
+      "type": "string",
+      "description": "Referenced Investment id"
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "real"
+      ],
+      "default": "demo",
+      "description": "Account space this position belongs to: demo (virtual simulation) or real (empty real-account space)"
+    }
+  },
+  "required": [
+    "ticker",
+    "name",
+    "units",
+    "avg_cost"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

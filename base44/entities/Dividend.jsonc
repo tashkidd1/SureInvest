@@ -1,0 +1,56 @@
+{
+  "name": "Dividend",
+  "description": "Simulated dividend payments received by a user.",
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "units": {
+      "type": "number"
+    },
+    "ex_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "pay_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "pending"
+      ],
+      "default": "paid"
+    },
+    "currency": {
+      "type": "string",
+      "default": "BWP"
+    }
+  },
+  "required": [
+    "ticker",
+    "name",
+    "amount",
+    "pay_date"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}
