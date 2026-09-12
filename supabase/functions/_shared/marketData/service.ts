@@ -3,7 +3,7 @@
 // request budget, writes the Investment / ExchangeRate caches, and returns a
 // unified result. Provider failures are isolated: one provider failing never
 // blocks or corrupts the other, and cached prices are always retained.
-import { fetchQuotes, fetchUsdBwpRate } from './twelveDataProvider.ts';
+import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, toMansaTicker } from './mansaProvider.ts';
 import { checkMansaBudget, recentBseSnapshot, logProviderRequest } from './requestBudget.ts';
 // Locked Global Market V1 set. Free Twelve Data plan = 8 API credits/minute; a
@@ -11,7 +11,26 @@ import { checkMansaBudget, recentBseSnapshot, logProviderRequest } from './reque
 // symbols are refreshed each run — repeated calls rotate through the set.
 const GLOBAL_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'KO', 'AMZN', 'SPY', 'VXUS', 'VNQ', 'VIG', 'BTC/USD'];
 const GLOBAL_PER_CALL = 6;
+// One-time chart backfill via /time_series (free-tier endpoint), capped low
+// per run so it never competes meaningfully with the quote budget above —
+// it naturally stops once every symbol has a non-empty historical_prices.
+const HISTORY_BACKFILL_PER_RUN = 2;
+
+// Builds the historical_prices/history_last_appended update for one row:
+// a one-time backfill (via Twelve Data's free /time_series) if history is
+// empty, otherwise one appended point per calendar day. Returns {} when
+// today's point was already appended (nothing to change).
+function nextHistory(inv, price, today, backfillPrices) {
+  const existing = Array.isArray(inv.historical_prices) ? inv.historical_prices : [];
+  if (existing.length === 0 && backfillPrices && backfillPrices.length) {
+    return { historical_prices: backfillPrices.slice(-90), history_last_appended: today };
+  }
+  if (inv.history_last_appended === today) return {};
+  return { historical_prices: [...existing, price].slice(-90), history_last_appended: today };
+}
+
 async function refreshGlobal(base44, apiKey, now) {
+  const today = now.slice(0, 10);
   const rows = await base44.asServiceRole.entities.Investment.filter({ market: 'global' });
   const targets = rows
     .filter((r) => GLOBAL_SYMBOLS.includes(r.ticker))
@@ -33,11 +52,18 @@ async function refreshGlobal(base44, apiKey, now) {
   }
   let updated = 0;
   let failed = 0;
+  let backfillsLeft = HISTORY_BACKFILL_PER_RUN;
   const updatedSymbols = [];
   for (const inv of targets) {
     const q = result.quotes[inv.ticker];
     if (!q) { failed += 1; continue; }
     try {
+      let backfillPrices = null;
+      if ((!inv.historical_prices || inv.historical_prices.length === 0) && backfillsLeft > 0) {
+        const series = await fetchTimeSeries(apiKey, inv.ticker, 30);
+        backfillsLeft -= 1;
+        if (series.ok && series.prices.length) backfillPrices = series.prices;
+      }
       await base44.asServiceRole.entities.Investment.update(inv.id, {
         price: q.price,
         previous_close: q.previous,
@@ -46,6 +72,7 @@ async function refreshGlobal(base44, apiKey, now) {
         currency: q.currency || inv.currency,
         data_source: 'twelve_data',
         last_updated: now,
+        ...nextHistory(inv, q.price, today, backfillPrices),
       });
       updated += 1;
       updatedSymbols.push(inv.ticker);
@@ -58,6 +85,7 @@ async function refreshGlobal(base44, apiKey, now) {
   return { status, attempted: symbols, updated, failed, updatedSymbols, message: `Global: refreshed ${updated}/${symbols.length} prices (stalest ${GLOBAL_PER_CALL} of ${GLOBAL_SYMBOLS.length}).` };
 }
 async function refreshBse(base44, apiKey, now) {
+  const today = now.slice(0, 10);
   // Conserve quota: skip if a fresh snapshot was already ingested recently
   // (Mansa snapshots refresh every 30 minutes).
   const fresh = await recentBseSnapshot(base44);
@@ -96,6 +124,9 @@ async function refreshBse(base44, apiKey, now) {
         currency: q.currency || inv.currency,
         data_source: 'mansa',
         last_updated: now,
+        // Mansa's free tier has no historical endpoint, so BSE charts build
+        // up one real point per day from here on rather than a backfill.
+        ...nextHistory(inv, q.price, today, null),
       });
       updated += 1;
       updatedSymbols.push(inv.ticker);

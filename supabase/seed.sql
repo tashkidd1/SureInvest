@@ -70,3 +70,69 @@ insert into public.investments (ticker, name, category, market, exchange, curren
   ('TURN', 'Turnstar Holdings Limited', 'reit', 'botswana', 'BSE', 'BWP', 2.06, true, false, 'mansa'),
   ('VGE-ETF', 'VGEPFAM', 'etf', 'botswana', 'BSE', 'BWP', 9.13, true, false, 'mansa')
 on conflict do nothing;
+
+-- Fundamentals backfill: sector, description, dividend_frequency are stable
+-- facts filled in here. market_cap / pe_ratio / dividend_yield are left
+-- NULL deliberately — Twelve Data's Fundamentals endpoint (market cap, P/E)
+-- is a paid add-on not included on the free Basic plan, and Mansa's BSE
+-- feed doesn't provide them either. Better blank than a stale/invented
+-- number in a finance app.
+update public.investments as i set
+  sector = v.sector,
+  description = v.description,
+  dividend_frequency = v.dividend_frequency
+from (values
+  ('AAPL', 'Technology', 'Designs and sells the iPhone, Mac, iPad, and wearables, alongside a growing services business (App Store, iCloud, Apple Music).', 'quarterly'),
+  ('MSFT', 'Technology', 'Develops Windows, Office, and Azure cloud services, and is a major investor in enterprise software and AI infrastructure.', 'quarterly'),
+  ('NVDA', 'Technology', 'Designs GPUs and AI accelerator chips that power gaming, data centers, and machine learning workloads worldwide.', 'quarterly'),
+  ('KO', 'Consumer Defensive', 'Manufactures and markets Coca-Cola and a portfolio of other nonalcoholic beverage brands sold in over 200 countries.', 'quarterly'),
+  ('AMZN', 'Consumer Cyclical', 'Runs the world''s largest online retail marketplace alongside Amazon Web Services (AWS), a leading cloud computing platform.', 'none'),
+  ('SPY', 'Diversified Fund', 'An ETF tracking the S&P 500 index, giving broad exposure to 500 of the largest publicly traded U.S. companies.', 'quarterly'),
+  ('VXUS', 'Diversified Fund', 'An ETF tracking a broad index of non-U.S. stocks across developed and emerging international markets.', 'quarterly'),
+  ('VNQ', 'Real Estate', 'An ETF tracking an index of U.S. real estate investment trusts (REITs) across commercial and residential property.', 'quarterly'),
+  ('VIG', 'Diversified Fund', 'An ETF tracking U.S. companies with a long history of consistently increasing their dividend payouts.', 'quarterly'),
+  ('BTC/USD', 'Digital Assets', 'Bitcoin is a decentralized, blockchain-based digital currency with a capped supply of 21 million coins.', 'none'),
+
+  ('ACCESS', 'Banking', 'Access Bank Botswana Limited provides retail, business, and corporate banking services in Botswana.', 'annual'),
+  ('ADBF', 'Diversified Fund', 'A listed fund vehicle traded on the BSE, offering pooled exposure rather than a single-company investment.', 'annual'),
+  ('ANG', 'Mining', 'Anglo American Plc is a global mining company producing diamonds, copper, and other metals, dual-listed on the BSE.', 'semi-annual'),
+  ('BARC', 'Banking', 'ABSA Bank of Botswana Limited (formerly Barclays Botswana) offers retail, business, and corporate banking services.', 'semi-annual'),
+  ('BBS', 'Financial Services', 'Botswana Building Society provides mortgage lending and savings products, and demutualised to list on the BSE.', 'annual'),
+  ('BIHL', 'Financial Services and Insurance', 'Botswana Insurance Holdings Limited is a life insurance and financial services group operating across Southern Africa.', 'semi-annual'),
+  ('BOD', 'Mining', 'Botswana Diamonds plc explores for and develops diamond deposits in Botswana and the wider region.', 'none'),
+  ('BOTA', 'Energy', 'Botala Energy Limited is engaged in oil and gas exploration in Botswana.', 'none'),
+  ('BTCL', 'Telecommunications', 'Botswana Telecommunications Corporation Limited provides fixed-line, mobile, and internet services nationally.', 'annual'),
+  ('CA-SALES', 'Wholesale & Retail', 'CA Sales Holdings Limited distributes and markets consumer goods (FMCG) across Southern Africa.', 'semi-annual'),
+  ('CHOBE', 'Tourism', 'Chobe Holdings Limited operates safari lodges and tourism ventures in and around the Chobe National Park area.', 'annual'),
+  ('CHOP', 'Wholesale & Retail', 'Choppies Enterprises Limited operates a chain of discount supermarkets across Botswana and neighbouring countries.', 'none'),
+  ('CRESTA', 'Tourism', 'Cresta Marakanelo Limited operates a chain of hotels and lodges across Botswana.', 'annual'),
+  ('ENGE', 'Energy', 'Engen Botswana Limited markets and distributes petroleum fuels and lubricants through a national retail network.', 'annual'),
+  ('FNBB', 'Banking', 'First National Bank Botswana Limited provides retail, commercial, and corporate banking services nationally.', 'semi-annual'),
+  ('FPC', 'Real Estate', 'The Far Property Company Limited is a REIT holding commercial and retail property in Botswana.', 'semi-annual'),
+  ('G4S', 'Security Services', 'G4S Botswana Limited provides security, cash management, and related risk services.', 'annual'),
+  ('GAIA', 'Energy', 'GAIA Renewables 1 Limited invests in renewable energy generation projects.', 'none'),
+  ('INV', 'Financial Services', 'Investec Limited is a specialist international banking and asset management group, dual-listed on the BSE.', 'semi-annual'),
+  ('LETLOLE', 'Real Estate', 'Letlole La Rona Limited is a REIT holding industrial, commercial, and retail property in Botswana.', 'semi-annual'),
+  ('LETL', 'Financial Services', 'Letshego Holdings Limited provides micro-lending and inclusive financial services across Africa.', 'semi-annual'),
+  ('LUCA', 'Mining', 'Lucara Diamond Corp operates the Karowe diamond mine in Botswana, known for recovering large, high-value stones.', 'semi-annual'),
+  ('MIN', 'Mining', 'Minergy Limited operates the Masama coal mine in Botswana, supplying thermal coal.', 'none'),
+  ('NAP', 'Real Estate', 'New African Properties Limited is a REIT holding retail and commercial property, including shopping centres.', 'semi-annual'),
+  ('NEWG', 'Diversified Fund', 'An exchange-traded fund tracking the price of physical gold.', 'none'),
+  ('NGPL', 'Diversified Fund', 'An exchange-traded fund tracking the price of physical palladium.', 'none'),
+  ('NGPT', 'Diversified Fund', 'An exchange-traded fund tracking the price of physical platinum.', 'none'),
+  ('OLYM', 'Financial Services', 'Olympia Capital Corporation (Botswana) Limited is an investment holding company.', 'none'),
+  ('PRIM', 'Real Estate', 'PrimeTime Property Holdings Limited is a REIT holding office and retail property in Botswana.', 'semi-annual'),
+  ('RDCP', 'Real Estate', 'RDC Properties Limited is a REIT holding commercial and industrial property in Botswana.', 'semi-annual'),
+  ('SATRIX500', 'Diversified Fund', 'An ETF tracking the S&P 500 index of large U.S. companies, listed for BSE-based investors.', 'annual'),
+  ('SATRIXEMG', 'Diversified Fund', 'An ETF tracking a broad index of emerging-market equities.', 'annual'),
+  ('SATRIXWDM', 'Diversified Fund', 'An ETF tracking a broad index of developed-market equities worldwide.', 'annual'),
+  ('SCIL', 'Agriculture', 'Seedco International Limited produces and markets certified crop seed varieties across Africa.', 'annual'),
+  ('SECH', 'Consumer Defensive', 'Sechaba Brewery Holdings Limited brews and distributes beer and other beverages in Botswana.', 'semi-annual'),
+  ('SEFA', 'Wholesale & Retail', 'Sefalana Holding Company Limited operates wholesale and retail food distribution and supermarket chains.', 'semi-annual'),
+  ('SHU', 'Mining', 'Shumba Energy Limited is developing coal and energy projects in Botswana.', 'none'),
+  ('STAN', 'Banking', 'Standard Chartered Botswana Limited provides retail, business, and corporate banking services.', 'semi-annual'),
+  ('TLOU', 'Energy', 'Tlou Energy is developing coal-bed methane gas-to-power projects in Botswana.', 'none'),
+  ('TURN', 'Real Estate', 'Turnstar Holdings Limited is a REIT holding shopping centres and commercial property in Botswana and Kenya.', 'semi-annual'),
+  ('VGE-ETF', 'Diversified Fund', 'A listed fund vehicle traded on the BSE, offering pooled exposure rather than a single-company investment.', 'annual')
+) as v(ticker, sector, description, dividend_frequency)
+where i.ticker = v.ticker;
