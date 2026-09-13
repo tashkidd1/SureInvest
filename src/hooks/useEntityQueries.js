@@ -77,11 +77,14 @@ export function useSnapshots() {
     enabled: !!uid,
   });
 }
-// Shared catalogue — not user-scoped (read is open to all).
+// Shared catalogue — not user-scoped (read is open to all). Polls
+// periodically so prices stay in sync with the background refreshMarketData
+// cron without needing a manual reload.
 export function useInvestments() {
   return useQuery({
     queryKey: qk.investments(),
     queryFn: () => base44.entities.Investment.list("-daily_change_percent", 200),
+    refetchInterval: 60_000,
   });
 }
 export function useInvestment(id) {
@@ -89,6 +92,7 @@ export function useInvestment(id) {
     queryKey: qk.investment(id),
     queryFn: () => base44.entities.Investment.get(id),
     enabled: !!id,
+    refetchInterval: 60_000,
   });
 }
 export function useProfile() {

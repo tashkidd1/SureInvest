@@ -22,7 +22,9 @@ const HISTORY_BACKFILL_PER_RUN = 2;
 // today's point was already appended (nothing to change).
 function nextHistory(inv, price, today, backfillPrices) {
   const existing = Array.isArray(inv.historical_prices) ? inv.historical_prices : [];
-  if (existing.length === 0 && backfillPrices && backfillPrices.length) {
+  if (backfillPrices && backfillPrices.length) {
+    // A real 30-day series is always preferable to whatever thin history
+    // (0-4 points) accumulated before backfill quota reached this symbol.
     return { historical_prices: backfillPrices.slice(-90), history_last_appended: today };
   }
   if (inv.history_last_appended === today) return {};
@@ -59,7 +61,7 @@ async function refreshGlobal(base44, apiKey, now) {
     if (!q) { failed += 1; continue; }
     try {
       let backfillPrices = null;
-      if ((!inv.historical_prices || inv.historical_prices.length === 0) && backfillsLeft > 0) {
+      if ((!inv.historical_prices || inv.historical_prices.length < 5) && backfillsLeft > 0) {
         const series = await fetchTimeSeries(apiKey, inv.ticker, 30);
         backfillsLeft -= 1;
         if (series.ok && series.prices.length) backfillPrices = series.prices;

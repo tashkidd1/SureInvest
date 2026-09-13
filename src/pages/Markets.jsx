@@ -4,7 +4,6 @@ import InvestmentCard from "@/components/investments/InvestmentCard";
 import Disclaimer from "@/components/common/Disclaimer";
 import { LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useInvestments } from "@/hooks/useEntityQueries";
 import RefreshMarketDataButton from "@/components/markets/RefreshMarketDataButton";
@@ -37,7 +36,6 @@ export default function Markets() {
     if (query && !`${inv.ticker} ${inv.name}`.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
   });
-  const lastUpdated = investments.length ? investments.map((i) => i.last_updated).filter(Boolean).sort().reverse()[0] : null;
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -55,9 +53,6 @@ export default function Markets() {
           placeholder="Search ticker or name…"
           className="h-10 w-full rounded-lg border border-input bg-card px-3.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 sm:max-w-xs"
         />
-        {lastUpdated && (
-          <p className="text-xs text-muted-foreground">Prices last updated {formatDate(lastUpdated, { withTime: true })}</p>
-        )}
       </div>
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         {MARKETS.map((m) => (
