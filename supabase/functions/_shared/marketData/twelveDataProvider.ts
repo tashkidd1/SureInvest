@@ -44,6 +44,26 @@ export async function fetchQuotes(apiKey, symbols) {
   }
   return { ok: true, httpStatus: res.status, quotes };
 }
+// Fetch daily-close history for one symbol (used to seed a chart's
+// trendline once — after that, refreshGlobal appends one point per day).
+// Twelve Data's /time_series is a core market-data endpoint (included on
+// the free Basic plan), unlike /statistics (fundamentals, paid-only).
+export async function fetchTimeSeries(apiKey, symbol, outputsize = 30) {
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=${outputsize}&apikey=${apiKey}`;
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) return { ok: false, httpStatus: res.status, prices: [] };
+  const data = await res.json();
+  if (!data || data.status === 'error' || !Array.isArray(data.values)) {
+    return { ok: false, httpStatus: res.status, prices: [] };
+  }
+  // Twelve Data returns most-recent-first; charts want oldest-first.
+  const prices = data.values
+    .map((v) => Number(v.close))
+    .filter((n) => Number.isFinite(n))
+    .reverse();
+  return { ok: true, httpStatus: res.status, prices };
+}
+
 // Fetch the USD/BWP exchange rate. Any failure returns ok:false so the
 // caller keeps the cached/fallback rate — never zeroed.
 export async function fetchUsdBwpRate(apiKey) {

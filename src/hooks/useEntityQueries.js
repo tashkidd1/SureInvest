@@ -77,11 +77,14 @@ export function useSnapshots() {
     enabled: !!uid,
   });
 }
-// Shared catalogue — not user-scoped (read is open to all).
+// Shared catalogue — not user-scoped (read is open to all). Polls
+// periodically so prices stay in sync with the background refreshMarketData
+// cron without needing a manual reload.
 export function useInvestments() {
   return useQuery({
     queryKey: qk.investments(),
     queryFn: () => base44.entities.Investment.list("-daily_change_percent", 200),
+    refetchInterval: 60_000,
   });
 }
 export function useInvestment(id) {
@@ -89,6 +92,7 @@ export function useInvestment(id) {
     queryKey: qk.investment(id),
     queryFn: () => base44.entities.Investment.get(id),
     enabled: !!id,
+    refetchInterval: 60_000,
   });
 }
 export function useProfile() {
@@ -97,6 +101,27 @@ export function useProfile() {
     queryKey: qk.profile(uid),
     queryFn: async () => (await base44.entities.Profile.list("-created_date", 5))[0] || null,
     enabled: !!uid,
+  });
+}
+// Auto-Invest plans, scoped to the active account space — previously
+// unfiltered, so a future Real-account plan would've shown up while viewing
+// Demo (and vice versa).
+export function useRecurringInvestments() {
+  const uid = useUid();
+  const acct = useAcct();
+  return useQuery({
+    queryKey: [...qk.recurring(uid), acct],
+    queryFn: async () =>
+      (await base44.entities.RecurringInvestment.list("-created_date", 50)).filter((p) => inAccount(p, acct)),
+    enabled: !!uid,
+  });
+}
+// Contribution history for one goal.
+export function useGoalContributions(goalId) {
+  return useQuery({
+    queryKey: qk.goalContributions(goalId),
+    queryFn: () => base44.entities.GoalContribution.filter({ goal_id: goalId }, "-created_date", 50),
+    enabled: !!goalId,
   });
 }
 // Display-name resolution: Profile.display_name → User.full_name → email → "Investor".

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/common/PageHeader";
 import Disclaimer from "@/components/common/Disclaimer";
@@ -8,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
+import { useRecurringInvestments, useInvestments } from "@/hooks/useEntityQueries";
+import { invalidateRecurring } from "@/lib/queries";
 const FREQUENCIES = [
   { key: "weekly", label: "Weekly" },
   { key: "bi-weekly", label: "Bi-weekly" },
@@ -22,18 +26,13 @@ function nextDate(freq) {
 }
 export default function AutoInvest() {
   const { toast } = useToast();
-  const [plans, setPlans] = useState([]);
-  const [investments, setInvestments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const { data: plans = [], isLoading: loading } = useRecurringInvestments();
+  const { data: investments = [] } = useInvestments();
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ investment_id: "", amount: "", frequency: "monthly" });
-  const load = () => {
-    Promise.all([
-      base44.entities.RecurringInvestment.list("-created_date", 50),
-      base44.entities.Investment.list("-daily_change_percent", 200),
-    ]).then(([p, invs]) => { setPlans(p); setInvestments(invs); setLoading(false); });
-  };
-  useEffect(() => { load(); }, []);
+  const refresh = () => invalidateRecurring(qc, user?.id);
   const submit = (e) => {
     e.preventDefault();
     const inv = investments.find((i) => i.id === form.investment_id);
@@ -42,12 +41,17 @@ export default function AutoInvest() {
       ticker: inv.ticker, name: inv.name, investment_id: inv.id,
       amount: Number(form.amount), frequency: form.frequency,
       next_date: nextDate(form.frequency), active: true,
+      // Auto-Invest is a Demo-account feature for now, same as Goals and
+      // trading — hardcoded rather than read from the active account
+      // switcher, since this write goes straight to the database with no
+      // validating backend function in between to enforce that rule.
+      account_type: "demo",
     })
-      .then(() => { toast({ title: "Auto-Invest plan created" }); setForm({ investment_id: "", amount: "", frequency: "monthly" }); setAdding(false); load(); })
+      .then(() => { toast({ title: "Auto-Invest plan created" }); setForm({ investment_id: "", amount: "", frequency: "monthly" }); setAdding(false); refresh(); })
       .catch(() => toast({ title: "Could not create plan", variant: "destructive" }));
   };
-  const toggle = (plan) => base44.entities.RecurringInvestment.update(plan.id, { active: !plan.active }).then(load);
-  const remove = (id) => base44.entities.RecurringInvestment.delete(id).then(load);
+  const toggle = (plan) => base44.entities.RecurringInvestment.update(plan.id, { active: !plan.active }).then(refresh);
+  const remove = (id) => base44.entities.RecurringInvestment.delete(id).then(refresh);
   return (
     <div className="space-y-6">
       <PageHeader title="Auto-Invest" subtitle="Schedule recurring simulated investments and let your portfolio grow steadily." icon={Repeat} />

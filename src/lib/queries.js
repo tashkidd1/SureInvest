@@ -12,6 +12,8 @@ export const qk = {
   snapshots: (uid) => ["snapshots", uid],
   portfolio: (uid) => ["portfolio", uid],
   profile: (uid) => ["profile", uid],
+  recurring: (uid) => ["recurring", uid],
+  goalContributions: (goalId) => ["goalContributions", goalId],
   investments: () => ["investments"],
   investment: (id) => ["investment", id],
   exchangeRate: () => ["exchangeRate"],
@@ -46,6 +48,10 @@ export function invalidateWatchlist(qc, uid) {
     qc.invalidateQueries({ queryKey: ["watchlist", uid] }),
     qc.invalidateQueries({ queryKey: ["portfolio", uid] }),
   ]);
+}
+// After creating/editing/deleting an Auto-Invest plan.
+export function invalidateRecurring(qc, uid) {
+  return qc.invalidateQueries({ queryKey: ["recurring", uid] });
 }
 // After a cash top-up / manual cash+deposit. Top-ups now create a persistent
 // notification, so the notifications list is invalidated too.

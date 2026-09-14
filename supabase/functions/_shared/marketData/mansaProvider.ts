@@ -49,7 +49,7 @@ export async function fetchBseSnapshot(apiKey) {
   let meta = null;
   while (pages < MAX_PAGES) {
     const res = await fetchWithTimeout(`${API_BASE}?limit=${PAGE_LIMIT}&offset=${offset}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: apiKey },
     }, 30000);
     if (!res.ok) {
       return { ok: false, httpStatus: res.status, error: `Mansa returned HTTP ${res.status}`, quotes: {} };
