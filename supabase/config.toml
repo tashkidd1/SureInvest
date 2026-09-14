@@ -47,6 +47,10 @@ enabled = true
 verify_jwt = false
 [functions.createGoal]
 verify_jwt = false
+[functions.dailySnapshot]
+verify_jwt = false
+[functions.executeRecurringInvestment]
+verify_jwt = false
 [functions.executeTrade]
 verify_jwt = false
 [functions.investAssistant]

@@ -103,6 +103,27 @@ export function useProfile() {
     enabled: !!uid,
   });
 }
+// Auto-Invest plans, scoped to the active account space — previously
+// unfiltered, so a future Real-account plan would've shown up while viewing
+// Demo (and vice versa).
+export function useRecurringInvestments() {
+  const uid = useUid();
+  const acct = useAcct();
+  return useQuery({
+    queryKey: [...qk.recurring(uid), acct],
+    queryFn: async () =>
+      (await base44.entities.RecurringInvestment.list("-created_date", 50)).filter((p) => inAccount(p, acct)),
+    enabled: !!uid,
+  });
+}
+// Contribution history for one goal.
+export function useGoalContributions(goalId) {
+  return useQuery({
+    queryKey: qk.goalContributions(goalId),
+    queryFn: () => base44.entities.GoalContribution.filter({ goal_id: goalId }, "-created_date", 50),
+    enabled: !!goalId,
+  });
+}
 // Display-name resolution: Profile.display_name → User.full_name → email → "Investor".
 export function useDisplayName() {
   const { user } = useAuth();
