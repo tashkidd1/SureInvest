@@ -16,8 +16,11 @@ const PAGE_LIMIT = 200; // docs: limit is capped at 200; BSE total is ~41 → on
 const MAX_PAGES = 3;    // hard stop so pagination can never blow the budget
 // SureInvest curated tickers that differ from Mansa's canonical BSE tickers.
 const TICKER_ALIASES = {
-  LETL: 'LETS',    // Letshego Holdings
-  SECH: 'SECHABA', // Sechaba Brewery Holdings
+  // Map our stored tickers to Mansa's actual response tickers
+  LETL: 'LETS',      // Letshego Holdings
+  SECH: 'SECHABA',   // Sechaba Brewery Holdings
+  FNBP: 'FNBB',      // First National Bank
+  ENPC: 'ENGE',      // Engen Botswana
 };
 export function toMansaTicker(ticker) {
   return TICKER_ALIASES[ticker] || ticker;

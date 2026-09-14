@@ -16,9 +16,18 @@ insert into public.investments (ticker, name, category, market, exchange, curren
   ('VXUS', 'Vanguard Total International Stock ETF', 'etf', 'global', 'NASDAQ', 'USD', 62.00, true, false),
   ('VNQ', 'Vanguard Real Estate ETF', 'reit', 'global', 'NYSE', 'USD', 92.00, true, false),
   ('VIG', 'Vanguard Dividend Appreciation ETF', 'etf', 'global', 'NYSE', 'USD', 185.00, true, false),
-  ('BTC/USD', 'Bitcoin', 'digital', 'global', 'Crypto', 'USD', 62000.00, true, false)
+  ('BTC/USD', 'Bitcoin', 'digital', 'global', 'Crypto', 'USD', 62000.00, true, false),
+  -- BSE Botswana Stock Exchange (Mansa provider will refresh these with live prices)
+  ('BIHL', 'Botswana Insurance Holdings Limited', 'equity', 'botswana', 'BSE', 'BWP', 23.76, true, true),
+  ('LETS', 'Letshego Holdings Limited', 'equity', 'botswana', 'BSE', 'BWP', 0.84, true, true),
+  ('SECHABA', 'Sechaba Brewery Holdings Limited', 'equity', 'botswana', 'BSE', 'BWP', 40.50, true, true),
+  ('FNBB', 'First National Bank Botswana Limited', 'equity', 'botswana', 'BSE', 'BWP', 5.73, true, true),
+  ('ENGE', 'Engen Botswana Limited', 'equity', 'botswana', 'BSE', 'BWP', 14.25, true, false),
+  ('BTCL', 'Botswana Telecommunications Corporation', 'equity', 'botswana', 'BSE', 'BWP', 1.46, true, false),
+  ('ACCESS', 'Access Bank Botswana Limited', 'equity', 'botswana', 'BSE', 'BWP', 2.04, true, false)
 on conflict do nothing;
 
 insert into public.exchange_rates (base, quote, rate, source) values
   ('USD', 'BWP', 13.5, 'fallback')
+on conflict do nothing;
 on conflict do nothing;
