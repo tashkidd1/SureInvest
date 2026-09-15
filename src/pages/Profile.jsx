@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/AuthContext";
+import { useAccount } from "@/lib/AccountContext";
 import { useToast } from "@/components/ui/use-toast";
 import DemoModeBadge from "@/components/layout/DemoModeBadge";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ const RISK = [
 ];
 export default function Profile() {
   const { user, logout } = useAuth();
+  const { isDemo } = useAccount();
   const { toast } = useToast();
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -53,9 +55,9 @@ export default function Profile() {
             {(user?.full_name || user?.email || "D").slice(0, 1).toUpperCase()}
           </div>
           <div>
-            <div className="font-display text-lg font-bold">{profile?.display_name || user?.full_name || "Demo Investor"}</div>
+            <div className="font-display text-lg font-bold">{profile?.display_name || user?.full_name || "Investor"}</div>
             <div className="text-sm text-muted-foreground">{user?.email || ""}</div>
-            <div className="mt-1.5"><DemoModeBadge /></div>
+            {isDemo && <div className="mt-1.5"><DemoModeBadge /></div>}
           </div>
         </div>
       </Card>

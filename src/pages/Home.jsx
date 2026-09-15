@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { useAccount } from "@/lib/AccountContext";
 import PortfolioSummary from "@/components/portfolio/PortfolioSummary";
 import GoalCard from "@/components/goals/GoalCard";
 import InvestmentCard from "@/components/investments/InvestmentCard";
@@ -15,6 +16,7 @@ import { BRAND } from "@/lib/brand";
 import { useDisplayName } from "@/hooks/useEntityQueries";
 export default function Home() {
   const portfolio = usePortfolio();
+  const { isDemo } = useAccount();
   const displayName = useDisplayName();
   const [movers, setMovers] = useState([]);
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function Home() {
             pl={portfolio.pl}
             plPercent={portfolio.plPercent}
             history={portfolio.snapshots}
+            isDemo={isDemo}
           />
           {portfolio.holdings.length === 0 && portfolio.transactions.length <= 1 && (
             <div className="rounded-2xl border border-accent/30 bg-accent-soft/40 p-6">
@@ -98,7 +101,7 @@ export default function Home() {
                 <h2 className="font-display text-lg font-semibold">Market movers</h2>
                 <Link to="/markets" className="text-sm font-medium text-primary hover:underline">Open markets</Link>
               </div>
-              <p className="-mt-2 text-xs text-muted-foreground">Demo market data — simulated prices, not live BSE quotes.</p>
+              <p className="-mt-2 text-xs text-muted-foreground">Simulated prices, not live BSE quotes.</p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {movers.slice(0, 6).map((inv) => (
                   <InvestmentCard key={inv.id} investment={inv} />

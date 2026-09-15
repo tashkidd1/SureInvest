@@ -1,4 +1,5 @@
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { useAccount } from "@/lib/AccountContext";
 import PortfolioSummary from "@/components/portfolio/PortfolioSummary";
 import HoldingRow from "@/components/portfolio/HoldingRow";
 import PageHeader from "@/components/common/PageHeader";
@@ -8,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { nativeToBwp, useUsdBwpRate } from "@/lib/currency";
 export default function Portfolio() {
   const portfolio = usePortfolio();
+  const { isDemo } = useAccount();
   // Hooks must run unconditionally — call before any early return.
   const rate = useUsdBwpRate();
   if (portfolio.loading) {
@@ -35,6 +37,7 @@ export default function Portfolio() {
         pl={portfolio.pl}
         plPercent={portfolio.plPercent}
         history={portfolio.snapshots}
+        isDemo={isDemo}
       />
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2 space-y-3">

@@ -41,7 +41,8 @@ export default function InvestmentDetail() {
   const holding = holdings.find((h) => h.investment_id === id) || holdings.find((h) => h.ticker === inv.ticker) || null;
   const change = inv.daily_change_percent ?? 0;
   const tone = changeTone(change);
-  const sourceLabel = inv.data_source === "twelve_data" ? "Twelve Data" : "Seeded demo data";
+  const SOURCE_LABELS = { twelve_data: "Twelve Data", mansa: "Mansa (BSE)", seeded: "Starting price (not yet refreshed)" };
+  const sourceLabel = SOURCE_LABELS[inv.data_source] || SOURCE_LABELS.seeded;
   const currency = inv.currency || "BWP";
   const isForeign = currency !== "BWP";
   const bwpPrice = nativeToBwp(inv.price, currency, rate);
@@ -134,7 +135,11 @@ export default function InvestmentDetail() {
               <Row label="Cash available" value={formatCurrency(cash)} />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              {inv.data_source === "twelve_data" ? "Prices sourced from Twelve Data and cached locally." : "Prices are simulated demo data, not live market quotes."}
+              {inv.data_source === "twelve_data"
+                ? "Prices sourced from Twelve Data and cached locally."
+                : inv.data_source === "mansa"
+                ? "Prices sourced from the Mansa BSE feed and cached locally."
+                : "Starting price — not yet refreshed from a live provider."}
             </p>
           </Card>
           <Disclaimer />

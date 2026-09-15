@@ -80,7 +80,7 @@ export default function Markets() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Markets"
-          subtitle="A curated universe of Botswana and global securities. All prices are clearly-labelled demo data — not live market quotes."
+          subtitle="A curated universe of Botswana and global securities. Prices are simulated for practice, not live market quotes."
           icon={LineChart}
         />
         <RefreshMarketDataButton />

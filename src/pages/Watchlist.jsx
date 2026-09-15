@@ -17,7 +17,7 @@ export default function Watchlist() {
   const remove = (it) => wl.toggle({ investment_id: it.investment_id, id: it.investment_id, ticker: it.ticker });
   return (
     <div className="space-y-6">
-      <PageHeader title="Watchlist" subtitle="Securities you're keeping an eye on. Demo market data only." icon={Star} />
+      <PageHeader title="Watchlist" subtitle="Securities you're keeping an eye on." icon={Star} />
       {loading ? (
         <div className="grid place-items-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>
       ) : items.length === 0 ? (

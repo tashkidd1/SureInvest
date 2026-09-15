@@ -3,7 +3,7 @@ import { Wallet, TrendingUp, PiggyBank, Percent } from "lucide-react";
 import StatCard from "@/components/common/StatCard";
 import PortfolioChart from "@/components/charts/PortfolioChart";
 import { formatCurrency, formatPercent } from "@/lib/format";
-export default function PortfolioSummary({ totalValue, invested, cash, pl, plPercent, history = [] }) {
+export default function PortfolioSummary({ totalValue, invested, cash, pl, plPercent, history = [], isDemo = false }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -19,7 +19,7 @@ export default function PortfolioSummary({ totalValue, invested, cash, pl, plPer
               <h3 className="font-display font-semibold">Portfolio value</h3>
               <p className="text-xs text-muted-foreground">Simulated performance · last 30 days</p>
             </div>
-            <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">Demo data</span>
+            {isDemo && <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">Demo data</span>}
           </div>
           <div className="mt-4">
             <PortfolioChart data={history} />

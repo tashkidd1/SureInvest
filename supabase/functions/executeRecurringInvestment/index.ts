@@ -5,6 +5,11 @@ import { recordSnapshotForUser } from '../_shared/snapshot.ts';
 // Scheduled job (not user-invoked): executes every active RecurringInvestment
 // plan whose next_date has arrived. Auto-Invest is a Demo-account feature for
 // now, same as Goals and executeTrade's Real-account gate.
+//
+// Also callable directly by an admin with body {"force": true} to test their
+// own plan(s) immediately, without waiting for the real weekly/bi-weekly/
+// monthly interval — scoped to that admin's own plans only, so testing never
+// executes another user's schedule early.
 function addFrequency(dateStr, freq) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   if (freq === 'weekly') d.setUTCDate(d.getUTCDate() + 7);
@@ -17,8 +22,17 @@ async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const today = new Date().toISOString().slice(0, 10);
+    let body = {};
+    try { body = await req.json(); } catch (_e) { /* no body / cron sends {} */ }
     const activePlans = await base44.asServiceRole.entities.RecurringInvestment.filter({ active: true });
-    const due = activePlans.filter((p) => (p.next_date || '') <= today);
+    let due = activePlans.filter((p) => (p.next_date || '') <= today);
+    if (body?.force) {
+      const me = await base44.auth.me();
+      if (me?.role === 'admin') {
+        // Test mode: ignore next_date, but only for this admin's own plans.
+        due = activePlans.filter((p) => p.created_by_id === me.id);
+      }
+    }
     const rate = await getUsdBwpRate(base44);
     let executed = 0;
     let skipped = 0;

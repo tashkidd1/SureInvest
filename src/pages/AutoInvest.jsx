@@ -52,10 +52,27 @@ export default function AutoInvest() {
   };
   const toggle = (plan) => base44.entities.RecurringInvestment.update(plan.id, { active: !plan.active }).then(refresh);
   const remove = (id) => base44.entities.RecurringInvestment.delete(id).then(refresh);
+  const [testing, setTesting] = useState(false);
+  const runTestNow = () => {
+    setTesting(true);
+    base44.functions.invoke("executeRecurringInvestment", { force: true })
+      .then((res) => {
+        const d = res?.data || res || {};
+        toast({ title: "Test run complete", description: `Checked ${d.checked ?? 0} of your plans · executed ${d.executed ?? 0} · skipped ${d.skipped ?? 0} · failed ${d.failed ?? 0}` });
+        refresh();
+      })
+      .catch(() => toast({ title: "Test run failed", variant: "destructive" }))
+      .finally(() => setTesting(false));
+  };
   return (
     <div className="space-y-6">
       <PageHeader title="Auto-Invest" subtitle="Schedule recurring simulated investments and let your portfolio grow steadily." icon={Repeat} />
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {user?.role === "admin" && plans.length > 0 && (
+          <Button variant="outline" onClick={runTestNow} disabled={testing}>
+            {testing ? "Running…" : "Test: run my plans now"}
+          </Button>
+        )}
         <Button onClick={() => setAdding((v) => !v)}><Plus className="mr-1.5 h-4 w-4" /> New plan</Button>
       </div>
       {adding && (

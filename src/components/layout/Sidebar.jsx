@@ -3,11 +3,13 @@ import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import NavList from "./NavList";
 import DemoModeBadge from "./DemoModeBadge";
+import { useAccount } from "@/lib/AccountContext";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 // Desktop (lg+) persistent left sidebar. Supports an expanded mode (icons +
 // labels, w-60) and a collapsed icon-rail mode (w-[68px] with native title
 // tooltips). Active page is highlighted and unread notifications show a badge.
 export default function Sidebar({ collapsed, onToggleCollapse }) {
+  const { isDemo } = useAccount();
   return (
     <aside
       className={cn(
@@ -28,7 +30,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
       </div>
       <NavList collapsed={collapsed} />
       <div className="border-t border-border p-3">
-        {!collapsed && <DemoModeBadge className="mb-2 w-full justify-center" />}
+        {!collapsed && isDemo && <DemoModeBadge className="mb-2 w-full justify-center" />}
         <button
           onClick={onToggleCollapse}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
