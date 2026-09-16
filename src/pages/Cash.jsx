@@ -22,23 +22,12 @@ export default function Cash() {
   const loading = cashQ.isLoading;
   const [toppingUp, setToppingUp] = useState(false);
   const topUp = async () => {
-    if (!account || toppingUp) return;
+    if (!account || toppingUp || !isDemo) return;
     setToppingUp(true);
     try {
-      const newBalance = (account.balance || 0) + 5000;
-      await base44.entities.CashAccount.update(account.id, { balance: newBalance, available: newBalance });
-      await base44.entities.Transaction.create({ type: "deposit", amount: 5000, currency: "BWP", description: "Demo top-up", account_type: "demo" });
-      // Persistent notification — mirrors buy/sell so top-ups appear in the
-      // Notifications section. Isolated so a notification failure never
-      // breaks the top-up itself.
-      try {
-        await base44.entities.Notification.create({
-          title: "Cash topped up",
-          body: "P5,000 demo cash added to your account.",
-          type: "success",
-          icon: "Wallet",
-        });
-      } catch (_) { /* notification is best-effort */ }
+      const res = await base44.functions.invoke("demoCashTopUp", {});
+      const d = res?.data || res || {};
+      if (!d.ok) throw new Error(d.error || "Could not add demo cash.");
       await invalidateCash(qc, user?.id);
       toast({ title: "Added P5,000 demo cash" });
     } catch (e) {
