@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useInvestments } from "@/hooks/useEntityQueries";
 import RefreshMarketDataButton from "@/components/markets/RefreshMarketDataButton";
+import BseIndexCard from "@/components/markets/BseIndexCard";
 const MARKETS = [
   { key: "botswana", label: "Botswana" },
   { key: "global", label: "Global" },
@@ -186,6 +187,7 @@ export default function Markets() {
           </button>
         ))}
       </div>
+      {market === "botswana" && <BseIndexCard />}
       {loading ? (
         <div className="grid place-items-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />

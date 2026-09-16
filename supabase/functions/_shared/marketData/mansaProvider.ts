@@ -72,3 +72,29 @@ export async function fetchBseSnapshot(apiKey) {
   }
   return { ok: true, httpStatus: 200, quotes, updated_at: (meta && meta.updated_at) || null };
 }
+
+// Fetch daily history for a BSE index (free-tier endpoint, unlike the
+// paywalled per-stock /history route which returned 403 on a free key).
+// GET /api/v1/markets/exchanges/{exchange}/indices/{code}/history?range=1Y
+export async function fetchBseIndexHistory(apiKey, exchange, code, range = '1Y') {
+  const url = `https://mansaapi.com/api/v1/markets/exchanges/${exchange}/indices/${code}/history?range=${range}`;
+  const res = await fetchWithTimeout(url, { headers: { Authorization: apiKey } }, 30000);
+  if (!res.ok) {
+    return { ok: false, httpStatus: res.status, error: `Mansa returned HTTP ${res.status}`, points: [], name: null };
+  }
+  const body = await res.json();
+  if (!body || body.success === false) {
+    const msg = body && body.error && body.error.message ? body.error.message : 'Mansa returned an error';
+    return { ok: false, httpStatus: res.status, error: msg, points: [], name: null };
+  }
+  const raw = (body.data && Array.isArray(body.data.points)) ? body.data.points : [];
+  // Points already arrive oldest-first; keep only what a chart needs.
+  const points = raw
+    .map((p) => ({ date: p.trade_date, value: Number(p.value) }))
+    .filter((p) => p.date && Number.isFinite(p.value));
+  return {
+    ok: true, httpStatus: 200, points,
+    name: (body.data && body.data.name) || code,
+    last_value: points.length ? points[points.length - 1].value : null,
+  };
+}

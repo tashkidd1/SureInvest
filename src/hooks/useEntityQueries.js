@@ -124,6 +124,15 @@ export function useGoalContributions(goalId) {
     enabled: !!goalId,
   });
 }
+// BSE Domestic Companies Index — system-managed, single row, refreshed by
+// the backend roughly daily. Not user-scoped.
+export function useBseIndex() {
+  return useQuery({
+    queryKey: ["bseIndex"],
+    queryFn: async () => (await base44.entities.MarketIndex.filter({ code: "BSE DCI" }))[0] || null,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 // Display-name resolution: Profile.display_name → User.full_name → email → "Investor".
 export function useDisplayName() {
   const { user } = useAuth();

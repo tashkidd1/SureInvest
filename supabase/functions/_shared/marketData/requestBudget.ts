@@ -28,13 +28,18 @@ export async function checkMansaBudget(base44) {
 // If the last successful BSE snapshot is younger than the snapshot freshness
 // interval, return its info so a repeat refresh can defer and conserve quota.
 export async function recentBseSnapshot(base44) {
+  return recentRequest(base44, 'bse_snapshot', SNAPSHOT_MIN_INTERVAL_MS);
+}
+// Generic version of the above for any (provider: mansa) category/interval —
+// used by the BSE index-history refresh, which only needs a daily check.
+export async function recentRequest(base44, category, minIntervalMs) {
   const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
-    { provider: 'mansa', category: 'bse_snapshot', status: 'success' }, '-created_date', 1
+    { provider: 'mansa', category, status: 'success' }, '-created_date', 1
   );
   const last = rows[0];
   if (!last) return null;
   const age = Date.now() - new Date(last.created_date).getTime();
-  return age < SNAPSHOT_MIN_INTERVAL_MS ? { at: last.created_date, ageMinutes: Math.round(age / 60000) } : null;
+  return age < minIntervalMs ? { at: last.created_date, ageMinutes: Math.round(age / 60000) } : null;
 }
 // Log a provider request. Never throws — observability must not break a
 // refresh. Prunes log rows older than 7 days to keep the entity bounded.

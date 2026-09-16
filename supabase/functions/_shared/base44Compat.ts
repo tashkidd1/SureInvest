@@ -17,6 +17,7 @@ const TABLES: Record<string, string> = {
   Holding: 'holdings',
   Investment: 'investments',
   MarketDataRequest: 'market_data_requests',
+  MarketIndex: 'market_indices',
   Notification: 'notifications',
   PortfolioSnapshot: 'portfolio_snapshots',
   Profile: 'profiles',

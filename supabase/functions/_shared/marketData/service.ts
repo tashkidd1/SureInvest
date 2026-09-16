@@ -4,8 +4,8 @@
 // unified result. Provider failures are isolated: one provider failing never
 // blocks or corrupts the other, and cached prices are always retained.
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
-import { fetchBseSnapshot, toMansaTicker } from './mansaProvider.ts';
-import { checkMansaBudget, recentBseSnapshot, logProviderRequest } from './requestBudget.ts';
+import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
+import { checkMansaBudget, recentBseSnapshot, recentRequest, logProviderRequest } from './requestBudget.ts';
 // Locked Global Market V1 set. Free Twelve Data plan = 8 API credits/minute; a
 // batched /quote counts one credit per symbol, so only the PER_CALL stalest
 // symbols are refreshed each run — repeated calls rotate through the set.
@@ -148,6 +148,36 @@ async function refreshBse(base44, apiKey, now) {
 }
 // USD/BWP FX refresh (Twelve Data, independent of the global quotes outcome).
 // Any failure keeps the cached/fallback rate — never zeroed.
+// BSE index history (e.g. "BSE DCI") — a free-tier endpoint (unlike the
+// paywalled per-stock history route), so this replaces the whole cached
+// series each refresh rather than accumulating day by day. Gated to once
+// per 24h since the endpoint returns months of history in one call.
+const INDEX_REFRESH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+async function refreshBseIndex(base44, apiKey, now) {
+  const fresh = await recentRequest(base44, 'bse_index', INDEX_REFRESH_MIN_INTERVAL_MS);
+  if (fresh) return; // conserve quota — index history changes at most daily
+  try {
+    const result = await fetchBseIndexHistory(apiKey, 'BSE', 'DCI', '1Y');
+    await logProviderRequest(base44, {
+      provider: 'mansa', category: 'bse_index',
+      status: result.ok ? 'success' : 'error',
+      http_status: result.httpStatus, error_summary: result.error,
+    });
+    if (!result.ok || !result.points.length) return;
+    const existing = await base44.asServiceRole.entities.MarketIndex.filter({ code: 'BSE DCI' });
+    const fields = {
+      name: result.name, exchange: 'BSE', currency: 'BWP',
+      points: result.points, last_value: result.last_value, last_updated: now,
+    };
+    if (existing[0]) {
+      await base44.asServiceRole.entities.MarketIndex.update(existing[0].id, fields);
+    } else {
+      await base44.asServiceRole.entities.MarketIndex.create({ code: 'BSE DCI', ...fields });
+    }
+  } catch (_e) {
+    // best-effort — never let this break the main refresh
+  }
+}
 async function refreshFx(base44, apiKey, now) {
   try {
     const result = await fetchUsdBwpRate(apiKey);
@@ -198,6 +228,10 @@ export async function runMarketRefresh(base44, config) {
     } catch (e) {
       result.bse = { status: 'provider_error', attempted: false, updated: 0, failed: 0, message: `BSE: refresh failed (${e.message || 'error'}). Cached prices retained.` };
     }
+  }
+  // BSE index history — best-effort, independent of the per-stock snapshot.
+  if (config.mansaKey) {
+    await refreshBseIndex(base44, config.mansaKey, now);
   }
   // FX — Twelve Data (preserved existing behaviour)
   if (config.twelveDataKey) {
