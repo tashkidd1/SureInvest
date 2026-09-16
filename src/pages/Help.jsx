@@ -5,8 +5,8 @@ import { LifeBuoy, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 const FAQ = [
-  { q: "What is InvestBW?", a: "InvestBW is a Botswana-focused simulated investment platform. It helps you learn, explore and practise investing through virtual portfolios across Botswana and selected global markets. It is an educational and product-development tool today." },
-  { q: "Is this real money?", a: "No. InvestBW is currently a simulated environment. No real money is accepted, no real securities are purchased, and no real trades are executed. You start with P10,000 in virtual cash." },
+  { q: "What is SureInvest?", a: "SureInvest is a Botswana-focused simulated investment platform. It helps you learn, explore and practise investing through virtual portfolios across Botswana and selected global markets. It is an educational and product-development tool today." },
+  { q: "Is this real money?", a: "No. SureInvest is currently a simulated environment. No real money is accepted, no real securities are purchased, and no real trades are executed. You start with P10,000 in virtual cash." },
   { q: "How does simulated investing work?", a: "You browse a curated catalogue of Botswana and global securities, buy and sell with your virtual cash, and track a simulated portfolio. Prices, holdings and transactions persist to your account so you can return later and pick up where you left off." },
   { q: "How is portfolio value calculated?", a: "Your portfolio value is the sum of your virtual cash plus the market value of your holdings (units × latest cached price). Profit/loss is the difference between current value and what you invested." },
   { q: "What are the different asset types?", a: "Stocks (equities) are shares in a company. ETFs hold a basket of many securities. REITs give exposure to real estate. Bonds are loans that pay fixed interest. Digital assets (like Bitcoin) are decentralised and highly volatile." },
@@ -19,7 +19,7 @@ export default function Help() {
   const [open, setOpen] = useState(0);
   return (
     <div className="space-y-6">
-      <PageHeader title="Help" subtitle="Answers to common questions about InvestBW and investing basics." icon={LifeBuoy} />
+      <PageHeader title="Help" subtitle="Answers to common questions about SureInvest and investing basics." icon={LifeBuoy} />
       <div className="space-y-2.5">
         {FAQ.map((item, i) => (
           <Card key={i} className="overflow-hidden shadow-card border-border/70">

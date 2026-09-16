@@ -43,7 +43,7 @@ export default function Transactions() {
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground" title="Pre-multi-currency trade restated to BWP">legacy</span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">{tx.description || formatDate(tx.created_date, { withTime: true })}</div>
+                    {tx.description && <div className="text-xs text-muted-foreground">{tx.description}</div>}
                     <div className="text-xs text-muted-foreground">{formatDate(tx.created_date, { withTime: true })}</div>
                   </div>
                 </div>

@@ -48,9 +48,13 @@ async function handler(req) {
     const fx_rate = currency === 'BWP' ? 1 : await getUsdBwpRate(base44);
     const native_total = price * units;
     const bwp_total = nativeToBwp(native_total, currency, fx_rate);
-    // User-scoped list is RLS-reliable; the platform documents compound
-    // filter({ created_by_id, ... }) as unreliable, which previously caused
-    // repeat buys to create duplicate holdings instead of merging.
+    // Fetches the user's full cash-account list and filters in JS rather
+    // than a server-side compound filter — a holdover from the original
+    // Base44 platform, where compound entity filters were documented as
+    // unreliable. Supabase's RLS-scoped .filter({created_by_id, ...}) does
+    // not have that limitation; this pattern is kept for now only because
+    // it's already correct and this is financial-transaction code that
+    // shouldn't be touched without real need (see: harden later, not now).
     const cashAccounts = await base44.entities.CashAccount.list("-created_date", 10);
     const cash = cashAccounts.find((c) => (c.account_type || 'demo') === account_type) || null;
     if (!cash) return Response.json({ error: 'No cash account found. Please complete onboarding first.' }, { status: 400 });

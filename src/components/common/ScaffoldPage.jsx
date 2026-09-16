@@ -13,7 +13,7 @@ export default function ScaffoldPage({ title, subtitle, icon: Icon, description 
         </div>
         <h2 className="font-display text-lg font-semibold">{title} is scaffolded</h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          {description || "This screen is part of the InvestBW foundation and will be built out in the next phase. The routing, layout and design system are all live."}
+          {description || "This screen is part of the SureInvest foundation and will be built out in the next phase. The routing, layout and design system are all live."}
         </p>
       </Card>
       <Disclaimer />

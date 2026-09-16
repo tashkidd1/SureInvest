@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
+import { useAccount } from "@/lib/AccountContext";
 import { useRecurringInvestments, useInvestments } from "@/hooks/useEntityQueries";
 import { invalidateRecurring } from "@/lib/queries";
 const FREQUENCIES = [
@@ -27,6 +28,7 @@ function nextDate(freq) {
 export default function AutoInvest() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isDemo } = useAccount();
   const qc = useQueryClient();
   const { data: plans = [], isLoading: loading } = useRecurringInvestments();
   const { data: investments = [] } = useInvestments();
@@ -67,13 +69,16 @@ export default function AutoInvest() {
   return (
     <div className="space-y-6">
       <PageHeader title="Auto-Invest" subtitle="Schedule recurring simulated investments and let your portfolio grow steadily." icon={Repeat} />
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!isDemo && (
+          <span className="mr-auto text-xs text-muted-foreground">Auto-Invest is currently available in Demo only.</span>
+        )}
         {user?.role === "admin" && plans.length > 0 && (
           <Button variant="outline" onClick={runTestNow} disabled={testing}>
             {testing ? "Running…" : "Test: run my plans now"}
           </Button>
         )}
-        <Button onClick={() => setAdding((v) => !v)}><Plus className="mr-1.5 h-4 w-4" /> New plan</Button>
+        {isDemo && <Button onClick={() => setAdding((v) => !v)}><Plus className="mr-1.5 h-4 w-4" /> New plan</Button>}
       </div>
       {adding && (
         <Card className="p-5 shadow-card border-border/70">

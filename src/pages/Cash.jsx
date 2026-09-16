@@ -66,7 +66,9 @@ export default function Cash() {
                   {toppingUp ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowDownLeft className="mr-1.5 h-4 w-4" />}
                   Add demo cash
                 </Button>
-                <Button variant="outline"><ArrowUpRight className="mr-1.5 h-4 w-4" /> Withdraw</Button>
+                <Button variant="outline" disabled title="Simulated withdrawals aren't implemented yet">
+                  <ArrowUpRight className="mr-1.5 h-4 w-4" /> Withdraw (coming soon)
+                </Button>
               </>
             ) : (
               <p className="text-xs text-muted-foreground">Real-account cash will appear here once real investing is enabled.</p>

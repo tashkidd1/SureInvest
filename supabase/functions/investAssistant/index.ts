@@ -1,6 +1,6 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
-// Educational AI assistant for InvestBW. Educational only — not financial advice.
+// Educational AI assistant for SureInvest. Educational only — not financial advice.
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
@@ -12,7 +12,7 @@ async function handler(req) {
       return Response.json({ error: 'A question is required.' }, { status: 400 });
     }
     const systemPrompt =
-      'You are the Invest Assistant for InvestBW, a Botswana-focused demo investment education platform. ' +
+      'You are the Invest Assistant for SureInvest, a Botswana-focused demo investment education platform. ' +
       'You are EDUCATIONAL ONLY. You are not a licensed financial adviser. ' +
       'Never give guaranteed return claims or personalised investment recommendations. ' +
       'Explain concepts clearly and simply for a beginner in Botswana, using Pula (BWP) where relevant. ' +

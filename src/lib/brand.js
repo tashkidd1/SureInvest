@@ -1,8 +1,8 @@
 // Central branding config — change app name, tagline and identity in one place.
 export const BRAND = {
-  name: "InvestBW",
+  name: "SureInvest",
   tagline: "Invest with confidence",
-  shortName: "InvestBW",
+  shortName: "SureInvest",
   description:
     "A simple, accessible way for people in Botswana to learn about and practise investing.",
   region: "Botswana",
@@ -14,8 +14,8 @@ export const BRAND = {
     accent: "hsl(199 85% 45%)",
   },
   social: {
-    twitter: "@investbw",
+    twitter: "@sureinvest",
   },
 };
 export const DISCLAIMER =
-  "InvestBW is a demonstration prototype. All accounts, securities, prices and transactions are simulated. This is not financial advice and no real securities are traded.";
+  "SureInvest is a demonstration prototype. All accounts, securities, prices and transactions are simulated. This is not financial advice and no real securities are traded.";

@@ -56,7 +56,7 @@ async function handler(req) {
     }
     // Welcome notification — also user-scoped so the user can see it.
     await base44.entities.Notification.create({
-      title: 'Welcome to InvestBW',
+      title: 'Welcome to SureInvest',
       body: 'Your demo account is ready with P10,000 in virtual funds. Start exploring the markets!',
       type: 'success', read: false, icon: 'Sparkles',
     }).catch(() => {});
