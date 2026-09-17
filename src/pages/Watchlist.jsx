@@ -1,8 +1,10 @@
+import { Link } from "react-router-dom";
 import PageHeader from "@/components/common/PageHeader";
 import Disclaimer from "@/components/common/Disclaimer";
 import ChangeBadge from "@/components/common/ChangeBadge";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
 import { useWatchlist } from "@/hooks/useWatchlist";
 // The Watchlist page reads from the single shared useWatchlist source of
@@ -20,7 +22,10 @@ export default function Watchlist() {
       {loading ? (
         <div className="grid place-items-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>
       ) : items.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Your watchlist is empty. Add instruments from the Markets page.</Card>
+        <Card className="flex flex-col items-center gap-3 p-8 text-center">
+          <p className="text-sm text-muted-foreground">Your watchlist is empty. Star securities on the Markets page to track them here.</p>
+          <Link to="/markets"><Button size="sm" variant="outline">Browse markets</Button></Link>
+        </Card>
       ) : (
         <Card className="divide-y divide-border shadow-card border-border/70">
           {items.map((it) => (
