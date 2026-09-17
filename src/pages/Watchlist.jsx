@@ -3,7 +3,6 @@ import Disclaimer from "@/components/common/Disclaimer";
 import ChangeBadge from "@/components/common/ChangeBadge";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/format";
 import { formatMoney } from "@/lib/currency";
 import { useWatchlist } from "@/hooks/useWatchlist";
 // The Watchlist page reads from the single shared useWatchlist source of
