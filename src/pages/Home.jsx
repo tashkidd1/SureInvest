@@ -9,7 +9,7 @@ import InvestmentCard from "@/components/investments/InvestmentCard";
 import Disclaimer from "@/components/common/Disclaimer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, TrendingDown, Target, Sparkles, GraduationCap, Wallet, BarChart3, Plus, Repeat2 } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Target, GraduationCap, Wallet, BarChart3, Plus, Repeat2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { BRAND } from "@/lib/brand";
 import { useDisplayName } from "@/hooks/useEntityQueries";
