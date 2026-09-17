@@ -78,13 +78,15 @@ export default function Markets() {
   };
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           title="Markets"
           subtitle="A curated universe of Botswana and global securities. Prices are simulated for practice, not live market quotes."
           icon={LineChart}
         />
-        <RefreshMarketDataButton />
+        <div className="shrink-0 sm:pt-1">
+          <RefreshMarketDataButton />
+        </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
@@ -173,13 +175,13 @@ export default function Markets() {
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {ASSET_FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setAsset(f.key)}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               asset === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:border-primary/40"
             )}
           >
@@ -198,7 +200,10 @@ export default function Markets() {
         </div>
       )}
       {!loading && filtered.length === 0 && (
-        <p className="py-12 text-center text-sm text-muted-foreground">No instruments match your filters.</p>
+        <div className="rounded-xl border border-dashed border-border py-12 text-center">
+          <p className="text-sm text-muted-foreground">No instruments match your filters.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Try clearing filters or switching between Botswana and Global.</p>
+        </div>
       )}
       <Disclaimer />
       <p className="text-[11px] text-muted-foreground">
