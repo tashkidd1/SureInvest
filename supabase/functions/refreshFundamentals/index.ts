@@ -10,11 +10,11 @@ function toNumber(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
-async function fetchStatistics(apiKey: string, ticker: string, exchange?: string) {
+async function fetchStatistics(apiKey: string, ticker: string, micCode?: string) {
   const url = new URL('https://api.twelvedata.com/statistics');
   url.searchParams.set('symbol', ticker);
   url.searchParams.set('apikey', apiKey);
-  if (exchange) url.searchParams.set('exchange', exchange);
+  if (micCode) url.searchParams.set('mic_code', micCode);
   const response = await fetch(url.toString());
   const body = await response.json().catch(() => ({}));
   if (!response.ok || body.status === 'error') {
@@ -68,8 +68,9 @@ async function handler(req: Request) {
     const failed: Array<{ ticker: string; error: string }> = [];
 
     for (const inv of targets) {
-      const exchange = inv.market === 'botswana' ? 'XBOT' : undefined;
-      const result = await fetchStatistics(apiKey, inv.ticker, exchange);
+      // XBOT is Twelve Data's MIC for the Botswana Stock Exchange.
+      const micCode = inv.market === 'botswana' ? 'XBOT' : undefined;
+      const result = await fetchStatistics(apiKey, inv.ticker, micCode);
       if (!result.ok) {
         failed.push({ ticker: inv.ticker, error: result.error || 'Provider error' });
         continue;
