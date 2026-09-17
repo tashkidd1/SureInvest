@@ -71,8 +71,18 @@ export default function Goals() {
     }
   };
   const remove = async (id) => {
-    await base44.entities.Goal.delete(id);
-    await invalidateGoals();
+    try {
+      const res = await base44.functions.invoke("deleteGoal", { goal_id: id });
+      const d = res?.data || res || {};
+      if (d.error) throw new Error(d.error);
+      await invalidateGoals();
+    } catch (err) {
+      toast({
+        title: "Could not delete goal",
+        description: err?.message || "Try again.",
+        variant: "destructive",
+      });
+    }
   };
   const isComplete = (g) => (Number(g.current_amount) || 0) >= (Number(g.target_amount) || 0) || g.status === "completed";
   const active = goals.filter((g) => !isComplete(g));
