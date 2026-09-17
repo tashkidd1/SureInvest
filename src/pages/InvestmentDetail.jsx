@@ -43,10 +43,14 @@ export default function InvestmentDetail() {
   const tone = changeTone(change);
   const SOURCE_LABELS = { twelve_data: "Twelve Data", mansa: "Mansa (BSE)", seeded: "Starting price (not yet refreshed)" };
   const sourceLabel = SOURCE_LABELS[inv.data_source] || SOURCE_LABELS.seeded;
+  const fundamentalsSource = inv.fundamentals_source === "twelve_data" ? "Twelve Data" : null;
   const currency = inv.currency || "BWP";
   const isForeign = currency !== "BWP";
   const bwpPrice = nativeToBwp(inv.price, currency, rate);
   const bwpDailyChange = nativeToBwp(inv.daily_change || 0, currency, rate);
+  const hasMarketCap = inv.market_cap != null && Number(inv.market_cap) > 0;
+  const hasPe = inv.pe_ratio != null && Number(inv.pe_ratio) > 0;
+  const hasYield = inv.dividend_yield != null && Number(inv.dividend_yield) >= 0;
   return (
     <div className="space-y-6">
       <Link to="/markets" className="inline-flex items-center text-sm text-primary hover:underline"><ArrowLeft className="mr-1.5 h-4 w-4" /> Back to markets</Link>
@@ -93,13 +97,16 @@ export default function InvestmentDetail() {
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
               <Metric label="Sector" value={inv.sector || "—"} />
               <Metric label="Asset type" value={inv.category} />
-              <Metric label="Market cap" value={inv.market_cap != null && inv.market_cap > 0 ? formatMoney(inv.market_cap, currency, { compact: true }) : "—"} />
-              <Metric label="P/E ratio" value={inv.pe_ratio != null && inv.pe_ratio > 0 ? Number(inv.pe_ratio).toFixed(1) : "—"} />
-              <Metric label="Dividend yield" value={inv.dividend_yield != null && inv.dividend_yield > 0 ? `${Number(inv.dividend_yield).toFixed(2)}%` : "None"} />
+              <Metric label="Market cap" value={hasMarketCap ? formatMoney(inv.market_cap, currency, { compact: true }) : "—"} />
+              <Metric label="P/E ratio" value={hasPe ? Number(inv.pe_ratio).toFixed(1) : "—"} />
+              <Metric label="Dividend yield" value={hasYield ? `${Number(inv.dividend_yield).toFixed(2)}%` : "—"} />
               <Metric label="Frequency" value={formatFrequency(inv.dividend_frequency)} />
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-              Market cap, P/E and yield are educational catalogue figures (not live fundamentals). Live quote feeds refresh price and daily change only. A company dividend calendar is not available yet — frequency above is the typical payout schedule when known.
+              {fundamentalsSource
+                ? `Fundamentals shown above were fetched from ${fundamentalsSource}. Last updated ${formatDate(inv.fundamentals_updated_at, { withTime: true })}.`
+                : "Market cap, P/E and dividend yield are shown only when a configured data provider supplies them. No catalogue estimates are used."
+              }
             </p>
           </Card>
         </section>
