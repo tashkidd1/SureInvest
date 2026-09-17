@@ -1,7 +1,9 @@
+import { Link } from "react-router-dom";
 import PageHeader from "@/components/common/PageHeader";
 import Disclaimer from "@/components/common/Disclaimer";
 import { Receipt, ArrowDownLeft, ArrowUpRight, TrendingUp, TrendingDown, Coins, Target } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useTransactions } from "@/hooks/useEntityQueries";
@@ -26,7 +28,10 @@ export default function Transactions() {
       {loading ? (
         <div className="grid place-items-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>
       ) : txs.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">No transactions yet.</Card>
+        <Card className="flex flex-col items-center gap-3 p-8 text-center">
+          <p className="text-sm text-muted-foreground">No transactions yet. Buys, sells and goal contributions will appear here.</p>
+          <Link to="/markets"><Button size="sm" variant="outline">Browse markets</Button></Link>
+        </Card>
       ) : (
         <Card className="divide-y divide-border shadow-card border-border/70">
           {txs.map((tx) => {
@@ -34,10 +39,10 @@ export default function Transactions() {
             const Icon = meta.icon;
             return (
               <div key={tx.id} className="flex items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className={cn("grid h-9 w-9 place-items-center rounded-full", meta.tone)}><Icon className="h-4 w-4" /></div>
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-sm">{meta.label} {tx.ticker ? `· ${tx.ticker}` : ""}</span>
                       {tx.legacy && (
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground" title="Pre-multi-currency trade restated to BWP">legacy</span>
@@ -47,7 +52,7 @@ export default function Transactions() {
                     <div className="text-xs text-muted-foreground">{formatDate(tx.created_date, { withTime: true })}</div>
                   </div>
                 </div>
-                <span className={cn("font-semibold tabular-nums", tx.amount >= 0 ? "text-success" : "text-foreground")}>
+                <span className={cn("shrink-0 font-semibold tabular-nums", tx.amount >= 0 ? "text-success" : "text-foreground")}>
                   {tx.amount >= 0 ? "+" : ""}{formatCurrency(tx.amount)}
                 </span>
               </div>
