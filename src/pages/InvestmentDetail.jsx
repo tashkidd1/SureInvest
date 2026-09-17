@@ -93,11 +93,14 @@ export default function InvestmentDetail() {
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
               <Metric label="Sector" value={inv.sector || "—"} />
               <Metric label="Asset type" value={inv.category} />
-              <Metric label="Market cap" value={inv.market_cap ? formatMoney(inv.market_cap, currency, { compact: true }) : "—"} />
-              <Metric label="P/E ratio" value={inv.pe_ratio ? inv.pe_ratio : "—"} />
-              <Metric label="Dividend yield" value={inv.dividend_yield ? `${inv.dividend_yield}%` : "None"} />
-              <Metric label="Frequency" value={inv.dividend_frequency} />
+              <Metric label="Market cap" value={inv.market_cap != null && inv.market_cap > 0 ? formatMoney(inv.market_cap, currency, { compact: true }) : "—"} />
+              <Metric label="P/E ratio" value={inv.pe_ratio != null && inv.pe_ratio > 0 ? Number(inv.pe_ratio).toFixed(1) : "—"} />
+              <Metric label="Dividend yield" value={inv.dividend_yield != null && inv.dividend_yield > 0 ? `${Number(inv.dividend_yield).toFixed(2)}%` : "None"} />
+              <Metric label="Frequency" value={formatFrequency(inv.dividend_frequency)} />
             </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+              Market cap, P/E and yield are educational catalogue figures (not live fundamentals). Live quote feeds refresh price and daily change only. A company dividend calendar is not available yet — frequency above is the typical payout schedule when known.
+            </p>
           </Card>
         </section>
         <aside className="space-y-4">
@@ -156,11 +159,16 @@ export default function InvestmentDetail() {
     </div>
   );
 }
+function formatFrequency(freq) {
+  if (!freq || freq === "none") return "None";
+  const map = { quarterly: "Quarterly", "semi-annual": "Semi-annual", annual: "Annual" };
+  return map[freq] || freq;
+}
 function Metric({ label, value }) {
   return (
     <div>
       <div className="text-xs text-muted-foreground capitalize">{label}</div>
-      <div className="mt-0.5 font-medium capitalize">{value || "—"}</div>
+      <div className="mt-0.5 font-medium">{value || "—"}</div>
     </div>
   );
 }
@@ -168,7 +176,7 @@ function Row({ label, value, tone }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-medium tabular-nums", tone === "positive" && "text-success", tone === "negative" && "text-destructive")}>{value}</span>
+      <span className={cn("font-medium tabular-nums", tone === "positive" && "text-success", tone === "negative" && "text-destructive")} >{value}</span>
     </div>
   );
 }
