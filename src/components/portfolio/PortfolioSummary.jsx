@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Wallet, TrendingUp, PiggyBank, Percent } from "lucide-react";
+import { TrendingUp, PiggyBank, Percent } from "lucide-react";
 import StatCard from "@/components/common/StatCard";
 import PortfolioChart from "@/components/charts/PortfolioChart";
 import { formatCurrency } from "@/lib/format";
