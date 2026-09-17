@@ -1,4 +1,4 @@
-# InvestBW / SureInvest
+# SureInvest
 
 A simulated investing platform for Botswana (BSE-listed + global assets).
 Originally built in Base44; this repo is fully detached from Base44's
