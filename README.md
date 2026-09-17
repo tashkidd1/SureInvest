@@ -7,7 +7,7 @@ A simulated investing platform for Botswana (BSE-listed securities and global as
 - **Frontend**: React + Vite + Tailwind
 - **Database + Auth**: Supabase (Postgres, Row Level Security, email/OTP; Google optional)
 - **Backend**: Supabase Edge Functions (Deno)
-- **Market data**: Twelve Data (global quotes + USD/BWP FX) and optionally Mansa (BSE)
+- **Market data**: Twelve Data (global quotes + USD/BWP FX + optional paid fundamentals) and optionally Mansa (BSE)
 
 ## One-time setup
 
@@ -61,9 +61,14 @@ To grant yourself admin (catalogue edits, market refresh), open Studio at `http:
 | `demoCashTopUp` | Fixed demo cash top-up |
 | `toggleWatchlist` | Add/remove watchlist items |
 | `refreshMarketData` | Global + BSE prices and FX |
+| `refreshFundamentals` | Admin-only Twelve Data fundamentals refresh when the configured plan provides `/statistics` |
 | `dailySnapshot` | Portfolio value snapshots |
 | `investAssistant` | LLM investing assistant |
 | `migrateCurrency` | Multi-currency migration helper |
+
+### Fundamentals data policy
+
+SureInvest does **not** use static catalogue numbers for market cap, P/E or dividend yield. The `refreshFundamentals` function attempts to fetch these fields from Twelve Data's `/statistics` endpoint and persists only values actually returned by the provider. Twelve Data currently documents `/statistics` as a paid endpoint, so accounts without that entitlement will simply leave the fields unavailable rather than showing invented values. Twelve Data lists Botswana (`XBOT`) among its supported fundamentals markets.
 
 Deploy one function:
 
@@ -87,6 +92,7 @@ supabase secrets set TWELVE_DATA_API_KEY=... MANSA_API_KEY=... LLM_PROVIDER=open
 
 - `supabase/seed.sql` seeds a global + BSE investment catalogue, FX, and starter Learn lessons.
 - Add or edit rows in Supabase Studio (Table Editor) as needed.
+- A historical migration contains temporary educational fundamentals; the later live-fundamentals migration explicitly clears those values so they are not presented as live data.
 
 ## Google sign-in
 
