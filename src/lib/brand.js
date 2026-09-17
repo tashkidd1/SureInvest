@@ -3,6 +3,7 @@ export const BRAND = {
   name: "SureInvest",
   tagline: "Invest with confidence",
   shortName: "SureInvest",
+  initials: "SI",
   description:
     "A simple, accessible way for people in Botswana to learn about and practise investing.",
   region: "Botswana",
