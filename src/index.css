@@ -3,7 +3,7 @@
 @tailwind utilities;
 @layer base {
   :root {
-    /* InvestBW — premium fintech design system
+    /* SureInvest — premium fintech design system
        Primary: deep emerald (trust, growth, Botswana nature)
        Accent:  sky blue (Botswana flag) */
     --background: 150 20% 99%;
