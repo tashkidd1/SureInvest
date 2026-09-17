@@ -7,7 +7,7 @@ import BottomNav from "./BottomNav";
 import NavDrawer from "./NavDrawer";
 import MoreSheet from "./MoreSheet";
 import Onboarding from "@/pages/Onboarding";
-const COLLAPSE_KEY = "investbw.sidebar.collapsed";
+const COLLAPSE_KEY = "sureinvest.sidebar.collapsed";
 // Wraps every authenticated page and provides the responsive navigation shell:
 //   - lg+   : persistent left sidebar (expand/collapse, remembered)
 //   - md→lg : hamburger in the top bar opens a slide-out drawer

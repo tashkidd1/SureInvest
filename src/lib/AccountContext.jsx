@@ -12,7 +12,7 @@ export function AccountProvider({ children }) {
   useEffect(() => {
     if (!uid) return;
     try {
-      const saved = localStorage.getItem(`investbw_account_${uid}`);
+      const saved = localStorage.getItem(`sureinvest_account_${uid}`);
       setAccountType(saved === "real" ? "real" : "demo");
     } catch (_) {
       /* keep the default demo account */
@@ -23,7 +23,7 @@ export function AccountProvider({ children }) {
     setAccountType(next);
     if (uid) {
       try {
-        localStorage.setItem(`investbw_account_${uid}`, next);
+        localStorage.setItem(`sureinvest_account_${uid}`, next);
       } catch (_) {
         /* preference is best-effort */
       }

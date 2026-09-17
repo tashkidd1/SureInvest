@@ -20,7 +20,7 @@ export default function AccountSwitcher({ className }) {
   };
   const seg = (active, activeClasses) =>
     cn(
-      "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3",
       active ? cn("cursor-default", activeClasses) : "cursor-pointer text-muted-foreground hover:text-foreground"
     );
   return (
@@ -38,7 +38,8 @@ export default function AccountSwitcher({ className }) {
         className={seg(isDemo, isDemo ? "bg-warning/15 text-warning" : "")}
       >
         <FlaskConical className="h-3.5 w-3.5" />
-        Demo
+        <span className="hidden sm:inline">Demo</span>
+        <span className="sr-only">Demo account</span>
       </button>
       <button
         type="button"
@@ -49,7 +50,8 @@ export default function AccountSwitcher({ className }) {
         className={seg(!isDemo, !isDemo ? "bg-accent/15 text-accent" : "")}
       >
         <Landmark className="h-3.5 w-3.5" />
-        Real
+        <span className="hidden sm:inline">Real</span>
+        <span className="sr-only">Real account</span>
       </button>
     </div>
   );
