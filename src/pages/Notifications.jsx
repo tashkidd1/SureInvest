@@ -29,7 +29,10 @@ export default function Notifications() {
       {loading ? (
         <div className="grid place-items-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>
       ) : items.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">You're all caught up.</Card>
+        <Card className="p-8 text-center">
+          <p className="text-sm font-medium">You&apos;re all caught up</p>
+          <p className="mt-1 text-xs text-muted-foreground">Trade confirmations, goal updates and system alerts will appear here.</p>
+        </Card>
       ) : (
         <Card className="divide-y divide-border shadow-card border-border/70">
           {items.map((n) => (

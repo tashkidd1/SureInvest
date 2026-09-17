@@ -49,7 +49,11 @@ export default function Learn() {
               </Card>
             </button>
           ))}
-          {items.length === 0 && <Card className="p-8 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">No lessons yet.</Card>}
+          {items.length === 0 && (
+            <Card className="p-8 text-center sm:col-span-2 lg:col-span-3">
+              <p className="text-sm text-muted-foreground">Learning content is being prepared. Check back soon, or explore markets to practise in the meantime.</p>
+            </Card>
+          )}
         </div>
       )}
       <Disclaimer />
