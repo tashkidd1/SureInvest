@@ -120,7 +120,7 @@ export default function Landing() {
         </section>
 
         <section className="border-y border-border/60 bg-muted/30">
-          <div className="mx-auto flex max-w-5xl flex-col items-start gap-4 px-4 py-12 sm:flex-row sm:itemss-center sm:justify-between sm:px-6">
+          <div className="mx-auto flex max-w-5xl flex-col items-start gap-4 px-4 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <h2 className="font-display text-xl font-bold">Ready to open a demo account?</h2>
               <p className="mt-1 text-sm text-muted-foreground">

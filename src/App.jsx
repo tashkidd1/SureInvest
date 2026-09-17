@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
+import Landing from '@/pages/Landing';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 import Portfolio from './pages/Portfolio';
@@ -29,7 +30,17 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
+function UnauthFallback() {
+  const location = useLocation();
+  // Marketing homepage for `/`; other deep links send users to log in.
+  if (location.pathname === "/" || location.pathname === "") {
+    return <Landing />;
+  }
+  return <Navigate to="/login" replace />;
+}
+
 const AuthenticatedApp = () => {
+
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -57,7 +68,7 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+      <Route element={<ProtectedRoute unauthenticatedElement={<UnauthFallback />} />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/markets" element={<Markets />} />
