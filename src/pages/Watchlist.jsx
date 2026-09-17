@@ -29,18 +29,18 @@ export default function Watchlist() {
       ) : (
         <Card className="divide-y divide-border shadow-card border-border/70">
           {items.map((it) => (
-            <div key={it.id} className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary font-semibold text-xs">{it.ticker.slice(0, 2)}</div>
-                <div>
+            <div key={it.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary font-semibold text-xs">{it.ticker.slice(0, 2)}</div>
+                <div className="min-w-0">
                   <div className="font-semibold text-sm">{it.ticker}</div>
-                  <div className="text-xs text-muted-foreground">{it.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">{it.name}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="font-semibold tabular-nums">{formatMoney(it.price, it.market === "global" ? "USD" : "BWP")}</span>
+              <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+                <span className="font-semibold tabular-nums text-sm">{formatMoney(it.price, it.market === "global" ? "USD" : "BWP")}</span>
                 <ChangeBadge value={it.daily_change_percent || 0} />
-                <button onClick={() => remove(it)} disabled={wl.isPending({ investment_id: it.investment_id })} className="text-muted-foreground hover:text-destructive text-xs font-medium disabled:opacity-50">Remove</button>
+                <button onClick={() => remove(it)} disabled={wl.isPending({ investment_id: it.investment_id })} className="text-xs font-medium text-muted-foreground hover:text-destructive disabled:opacity-50">Remove</button>
               </div>
             </div>
           ))}

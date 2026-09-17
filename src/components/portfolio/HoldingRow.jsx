@@ -19,31 +19,34 @@ export default function HoldingRow({ holding }) {
   return (
     <Link to={`/investment/${holding.investment_id || ""}`} className="block">
       <Card className="p-4 shadow-card border-border/70 transition-shadow hover:shadow-card-hover">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary font-semibold text-xs shrink-0">
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary font-semibold text-xs">
               {holding.ticker.slice(0, 2)}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-sm">{holding.ticker}</span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{currency}</span>
               </div>
-              <div className="text-xs text-muted-foreground truncate">{holding.name}</div>
+              <div className="truncate text-xs text-muted-foreground">{holding.name}</div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
+                {formatNumber(holding.units)} units
+              </div>
             </div>
           </div>
-          <div className="text-right">
+          <div className="ml-auto flex shrink-0 flex-col items-end gap-1 text-right">
             <div className="font-semibold text-sm tabular-nums">
               {isForeign ? formatMoney(nativeValue, currency) : formatCurrency(marketValueBwp)}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {isForeign ? `≈ ${formatCurrency(marketValueBwp)}` : `${formatNumber(holding.units)} units`}
-            </div>
-          </div>
-          <div className="text-right hidden sm:block">
-            <ChangeBadge value={plPercent} />
-            <div className={cn("mt-1 text-xs font-medium tabular-nums", pl >= 0 ? "text-success" : "text-destructive")}>
-              {pl >= 0 ? "+" : ""}{formatCurrency(pl)}
+            {isForeign && (
+              <div className="text-xs text-muted-foreground tabular-nums">≈ {formatCurrency(marketValueBwp)}</div>
+            )}
+            <div className="flex items-center gap-2">
+              <ChangeBadge value={plPercent} />
+              <span className={cn("text-xs font-medium tabular-nums", pl >= 0 ? "text-success" : "text-destructive")}>
+                {pl >= 0 ? "+" : ""}{formatCurrency(pl)}
+              </span>
             </div>
           </div>
         </div>
