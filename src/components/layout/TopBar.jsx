@@ -23,7 +23,7 @@ export default function TopBar({ onOpenMenu }) {
         <Menu className="h-5 w-5" />
       </button>
       <Link to="/" className="flex items-center gap-2 lg:hidden min-w-0">
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground font-display font-bold text-sm">iB</div>
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground font-display font-bold text-xs">{BRAND.initials}</div>
         <span className="hidden xs:inline font-display font-bold text-[15px] sm:inline">{BRAND.name}</span>
       </Link>
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">

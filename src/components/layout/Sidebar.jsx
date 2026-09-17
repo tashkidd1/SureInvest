@@ -19,7 +19,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }) {
     >
       <div className={cn("flex h-16 items-center border-b border-border", collapsed ? "justify-center px-2" : "px-5")}>
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground font-display font-bold">iB</div>
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground font-display font-bold text-sm">{BRAND.initials}</div>
           {!collapsed && (
             <div className="leading-tight">
               <div className="font-display font-bold text-[15px]">{BRAND.name}</div>
