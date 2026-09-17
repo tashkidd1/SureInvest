@@ -73,29 +73,28 @@ export default function AutoInvest() {
     }
 
     try {
+      // Server-side validated plan CRUD — amount, investment, frequency and
+      // account_type are enforced in manageRecurringInvestment.
       if (editingId) {
-        await base44.entities.RecurringInvestment.update(editingId, {
-          ticker: inv.ticker,
-          name: inv.name,
+        const res = await base44.functions.invoke("manageRecurringInvestment", {
+          action: "update",
+          plan_id: editingId,
           investment_id: inv.id,
           amount,
           frequency: form.frequency,
-          // Recalculate the next run from today so a frequency change doesn't
-          // leave the plan carrying an obsolete schedule from the old plan.
-          next_date: nextDate(form.frequency),
         });
+        const d = res?.data || res || {};
+        if (d.error) throw new Error(d.error);
         toast({ title: "Auto-Invest plan updated" });
       } else {
-        await base44.entities.RecurringInvestment.create({
-          ticker: inv.ticker,
-          name: inv.name,
+        const res = await base44.functions.invoke("manageRecurringInvestment", {
+          action: "create",
           investment_id: inv.id,
           amount,
           frequency: form.frequency,
-          next_date: nextDate(form.frequency),
-          active: true,
-          account_type: "demo",
         });
+        const d = res?.data || res || {};
+        if (d.error) throw new Error(d.error);
         toast({ title: "Auto-Invest plan created" });
       }
       resetForm();
@@ -107,7 +106,12 @@ export default function AutoInvest() {
 
   const toggle = async (plan) => {
     try {
-      await base44.entities.RecurringInvestment.update(plan.id, { active: !plan.active });
+      const res = await base44.functions.invoke("manageRecurringInvestment", {
+        action: "toggle",
+        plan_id: plan.id,
+      });
+      const d = res?.data || res || {};
+      if (d.error) throw new Error(d.error);
       refresh();
     } catch (e) {
       toast({ title: "Could not update plan", description: e?.message || "Try again.", variant: "destructive" });
@@ -116,7 +120,12 @@ export default function AutoInvest() {
 
   const remove = async (id) => {
     try {
-      await base44.entities.RecurringInvestment.delete(id);
+      const res = await base44.functions.invoke("manageRecurringInvestment", {
+        action: "delete",
+        plan_id: id,
+      });
+      const d = res?.data || res || {};
+      if (d.error) throw new Error(d.error);
       refresh();
     } catch (e) {
       toast({ title: "Could not delete plan", description: e?.message || "Try again.", variant: "destructive" });
