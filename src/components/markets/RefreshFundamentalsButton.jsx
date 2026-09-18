@@ -38,10 +38,20 @@ export default function RefreshFundamentalsButton() {
           variant: "destructive",
         });
       } else {
-        const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
+        const failed = Array.isArray(data.failed) ? data.failed : [];
+        const failedCount = failed.length;
+        const details = failed
+          .slice(0, 3)
+          .map((item) => item.ticker + ": " + item.error)
+          .join(" • ");
         toast({
           title: "No live fundamentals updated",
-          description: data.message || (failedCount ? failedCount + " investment(s) could not be updated." : "The provider did not return supported fundamentals."),
+          description:
+            details ||
+            data.message ||
+            (failedCount
+              ? failedCount + " investment(s) could not be updated."
+              : "The provider did not return supported fundamentals."),
           variant: "destructive",
         });
       }
