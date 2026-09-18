@@ -493,3 +493,28 @@ The application is functional and substantially hardened.
 The next developer should treat the project as an existing working product, not a blank-slate rebuild.
 
 The most useful next phase is **targeted hardening and completion of remaining product gaps**, while keeping the existing working trading, account separation, portfolio, goals, Auto-Invest, watchlist, and market-data foundations intact.
+
+---
+
+# 19. Claude (Anthropic) session update — 18 September 2026
+
+This session independently verified the state described in sections 1–18 by reading the actual repository (not the summary alone) and running `npm install`, `npm run lint`, `npm run build` directly. All passed as described. The `daily-portfolio-snapshot` 23:55:02 cron finding in section 10 was independently re-derived from the live `portfolio_snapshots` table in an earlier session and matches exactly — good cross-confirmation from two separate investigations.
+
+One correction to this document: section 12 (Botswana/BSE market data) reads as if the Mansa integration is still pending ("the planned BSE integration", "if it is not already fully wired"). It is not pending — it was built and independently verified end-to-end in an earlier Claude session: Mansa auth header fix (no `Bearer` prefix — this was a real bug that caused every BSE request to 401), request budget gating, snapshot freshness gating, ticker aliasing (`LETL`→`LETS`, `SECH`→`SECHABA`), provider request logging, and a BSE Domestic Companies Index chart via Mansa's free `/indices/{code}/history` endpoint (per-stock `/stocks/{ticker}/history` is confirmed paywalled — 403 on the current key — but the index-level endpoint is free and returns real ~5-month history). Section 16 backlog items 6–8 (BSE catalogue retrieval, cached requests, stale-cache fallback, request logging, daily budget, key secrecy, Mansa attribution) are all already done. Don't re-verify or rebuild this.
+
+Also: backlog item 1 (notification consistency for Demo cash top-up) is already resolved — `invalidateCash()` in `src/lib/queries.js` already invalidates the notifications query key, with a comment noting exactly this. The backlog list just hasn't caught up to the code yet (an instance of this doc's own section 22/"documentation lag" problem).
+
+## New finding this session: financial-write RLS gap (real, not yet fixed)
+
+Mapped every direct client-side entity mutation in the frontend (`grep -rhoE "base44\.entities\.[A-Za-z]+\.(create|update|delete)\(" src`). Result: only two remain — `Profile.update` (display name/preferences) and `Notification.update` (marking own notifications read). Every financial write (CashAccount, Holding, Transaction, Goal, GoalContribution, RecurringInvestment) has been correctly moved into a validating Edge Function. Good work.
+
+However, this doesn't fully close backlog item 5 ("review client-side write paths where a user could manipulate financial state"). Checked which client each Edge Function uses for its actual writes:
+
+- `executeTrade`, `contributeToGoal`, `createGoal`, `demoCashTopUp`, `manageRecurringInvestment`, `deleteGoal` — **all six** use the RLS-scoped client (`base44.entities.X`), not `asServiceRole`, for every write to CashAccount/Holding/Transaction/Goal/GoalContribution/RecurringInvestment.
+
+This is a consistent, deliberate pattern (RLS ownership as the enforcement layer, Edge Function providing value/business-logic validation on top) — not a bug in any one function. But the implication: RLS's `owner insert/update/delete` policies on these tables (`created_by_id = auth.uid()`, no `WITH CHECK` on the actual values) still permit a technically motivated user to write **arbitrary values** to their own rows directly via devtools/raw API, completely bypassing the Edge Function's validation — e.g. `supabase.from('cash_accounts').update({balance: 999999999}).eq('id', ownRowId)` would succeed today, since RLS only checks who owns the row, not what's being written to it.
+
+**Closing this properly requires an architectural change, not a patch**: migrate all six functions' writes from the RLS-scoped client to `asServiceRole` (each already does its own manual ownership check for the delete/update paths — e.g. `deleteGoal` and `manageRecurringInvestment` already compare `existing.created_by_id !== user.id` — so this is a safe swap, not new logic), then add a forward migration removing the `owner insert/update/delete` policies on `cash_accounts`, `holdings`, `transactions`, `goal_contributions`, and `recurring_investments` (keep `owner select` — users still need to read their own data). `Goal`'s insert path (`createGoal`) and its RLS should get the same treatment for consistency, even though it's lower-stakes than balance/holdings manipulation.
+
+This was deliberately **not attempted this session** — it touches every core financial mutation path (trading, goals, Auto-Invest, cash) at once, and a mistake here breaks real functionality, not just security posture. Recommend: do this as its own focused pass, one function at a time, with a build/lint pass and a manual trade+goal+auto-invest+cash-topup regression check after each swap, rather than all six at once.
+
