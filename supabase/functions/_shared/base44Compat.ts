@@ -1,4 +1,4 @@
-// Compatibility shim: reproduces the slice of the Base44 server SDK that
+ // Compatibility shim: reproduces the slice of the Base44 server SDK that
 // InvestBW's functions rely on (entities.X.list/get/create/update/delete/
 // filter/deleteMany, auth.me, asServiceRole, asServiceRole.integrations.Core.InvokeLLM),
 // backed by Supabase. This lets the original function bodies run with only
@@ -117,6 +117,7 @@ async function invokeLLM({ prompt }: { prompt: string }) {
   const provider = (Deno.env.get('LLM_PROVIDER') || 'openai').toLowerCase();
   const apiKey = Deno.env.get('LLM_API_KEY');
   if (!apiKey) throw new Error('LLM_API_KEY is not configured.');
+
   if (provider === 'anthropic') {
     const model = Deno.env.get('LLM_MODEL') || 'claude-3-5-haiku-latest';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -132,13 +133,23 @@ async function invokeLLM({ prompt }: { prompt: string }) {
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-    if (!res.ok) throw new Error(`Anthropic API error: ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Anthropic API error: ${res.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`);
+    }
     const data = await res.json();
     return data?.content?.[0]?.text || '';
   }
-  // default: OpenAI-compatible
+
+  // OpenAI-compatible providers (OpenAI, NVIDIA NIM, Groq, etc.)
+  // LLM_BASE_URL should be the root including /v1 (no trailing slash required).
+  // Examples:
+  //   OpenAI:  https://api.openai.com/v1  (default)
+  //   NVIDIA:  https://integrate.api.nvidia.com/v1
+  //   Groq:    https://api.groq.com/openai/v1
+  const baseUrl = (Deno.env.get('LLM_BASE_URL') || 'https://api.openai.com/v1').replace(/\/$/, '');
   const model = Deno.env.get('LLM_MODEL') || 'gpt-4o-mini';
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -148,9 +159,13 @@ async function invokeLLM({ prompt }: { prompt: string }) {
       model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 500,
+      temperature: 0.4,
     }),
   });
-  if (!res.ok) throw new Error(`OpenAI API error: ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`LLM API error (${provider}): ${res.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`);
+  }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || '';
 }
