@@ -1,10 +1,8 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
-// Idempotent onboarding for new users. All records are created with the
-// user-scoped client (NOT asServiceRole) so created_by_id is stamped to the
-// calling user — that ownership is what lets RLS show them their own data.
-// Re-submitting onboarding is safe: existing profile/account are reused and
-// only the profile fields are updated.
+// Idempotent onboarding for new users. Profile writes stay user-scoped; cash
+// and ledger rows use service role with explicit created_by_id so RLS write
+// lockdown on financial tables does not break provisioning.
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
@@ -18,7 +16,6 @@ async function handler(req) {
     const first_name = clean(body.first_name, 60);
     const last_name = clean(body.last_name, 60);
     const display_name = clean(body.display_name, 80) || [first_name, last_name].filter(Boolean).join(' ') || '';
-    // User-scoped lookup: only sees records owned by this user (RLS).
     const [existingProfiles, existingAccounts] = await Promise.all([
       base44.entities.Profile.list('-created_date', 5),
       base44.entities.CashAccount.list('-created_date', 5),
@@ -40,25 +37,26 @@ async function handler(req) {
         demo_mode: true, base_currency: 'BWP', country: 'Botswana',
       });
     }
-    // Provision the demo cash account exactly once with P10,000.
     let cashAccount = existingAccounts[0];
     if (!cashAccount) {
-      cashAccount = await base44.entities.CashAccount.create({
+      cashAccount = await base44.asServiceRole.entities.CashAccount.create({
         balance: 10000, currency: 'BWP', available: 10000, label: 'Demo Cash Account',
         account_type: 'demo',
+        created_by_id: user.id,
       });
-      await base44.entities.Transaction.create({
+      await base44.asServiceRole.entities.Transaction.create({
         type: 'deposit', amount: 10000, currency: 'BWP', fx_rate: 1, fees: 0,
         description: 'Demo starting balance (virtual funds)', status: 'completed',
         account_type: 'demo',
         client_ref: `onboard-deposit-${user.id}`,
+        created_by_id: user.id,
       });
     }
-    // Welcome notification — also user-scoped so the user can see it.
-    await base44.entities.Notification.create({
+    await base44.asServiceRole.entities.Notification.create({
       title: 'Welcome to SureInvest',
       body: 'Your demo account is ready with P10,000 in virtual funds. Start exploring the markets!',
       type: 'success', read: false, icon: 'Sparkles',
+      created_by_id: user.id,
     }).catch(() => {});
     return Response.json({
       ok: true,

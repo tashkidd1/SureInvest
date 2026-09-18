@@ -40,7 +40,7 @@ async function handler(req) {
         return Response.json({ error: 'Target date cannot be in the past.' }, { status: 400 });
       }
     }
-    const goal = await base44.entities.Goal.create({
+    const goal = await base44.asServiceRole.entities.Goal.create({
       name,
       target_amount,
       current_amount: 0,
@@ -49,6 +49,7 @@ async function handler(req) {
       priority: 'medium',
       status: 'active',
       account_type: 'demo',
+      created_by_id: user.id,
     });
     return Response.json({ ok: true, goal });
   } catch (error) {
