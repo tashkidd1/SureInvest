@@ -29,7 +29,9 @@ export default function Cash() {
       const d = res?.data || res || {};
       if (!d.ok) throw new Error(d.error || "Could not add demo cash.");
       await invalidateCash(qc, user?.id);
-      toast({ title: "Added P5,000 demo cash" });
+      await qc.invalidateQueries({ queryKey: ["notifications", user?.id] });
+      await qc.invalidateQueries({ queryKey: ["transactions", user?.id] });
+      toast({ title: "Added P5,000 demo cash", description: "Transaction and notification updated." });
     } catch (e) {
       toast({ title: "Could not add cash", description: e?.message || "Try again.", variant: "destructive" });
     } finally {
