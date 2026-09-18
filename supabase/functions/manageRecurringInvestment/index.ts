@@ -56,7 +56,7 @@ async function handler(req: Request) {
       const inv = await base44.asServiceRole.entities.Investment.get(investment_id);
       if (!inv) return Response.json({ error: 'Investment not found.' }, { status: 404 });
 
-      const plan = await base44.entities.RecurringInvestment.create({
+      const plan = await base44.asServiceRole.entities.RecurringInvestment.create({
         ticker: inv.ticker,
         name: inv.name,
         investment_id: inv.id,
@@ -65,6 +65,7 @@ async function handler(req: Request) {
         next_date: nextDateFromFreq(frequency),
         active: true,
         account_type: 'demo',
+        created_by_id: user.id,
       });
       return Response.json({ ok: true, plan });
     }
@@ -118,7 +119,7 @@ async function handler(req: Request) {
       // Never allow client to flip account_type via update.
       patch.account_type = 'demo';
 
-      const plan = await base44.entities.RecurringInvestment.update(plan_id, patch);
+      const plan = await base44.asServiceRole.entities.RecurringInvestment.update(plan_id, patch);
       return Response.json({ ok: true, plan });
     }
 
@@ -132,7 +133,7 @@ async function handler(req: Request) {
         return Response.json({ error: 'Forbidden.' }, { status: 403 });
       }
 
-      const plan = await base44.entities.RecurringInvestment.update(plan_id, {
+      const plan = await base44.asServiceRole.entities.RecurringInvestment.update(plan_id, {
         active: !existing.active,
       });
       return Response.json({ ok: true, plan, active: !existing.active });
@@ -148,7 +149,7 @@ async function handler(req: Request) {
         return Response.json({ error: 'Forbidden.' }, { status: 403 });
       }
 
-      await base44.entities.RecurringInvestment.delete(plan_id);
+      await base44.asServiceRole.entities.RecurringInvestment.delete(plan_id);
       return Response.json({ ok: true, deleted: plan_id });
     }
 
