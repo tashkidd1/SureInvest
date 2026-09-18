@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useInvestments } from "@/hooks/useEntityQueries";
 import RefreshMarketDataButton from "@/components/markets/RefreshMarketDataButton";
+import RefreshFundamentalsButton from "@/components/markets/RefreshFundamentalsButton";
 import BseIndexCard from "@/components/markets/BseIndexCard";
 const MARKETS = [
   { key: "botswana", label: "Botswana" },
@@ -85,7 +86,10 @@ export default function Markets() {
           icon={LineChart}
         />
         <div className="shrink-0 sm:pt-1">
+          <div className="flex flex-wrap gap-2">
           <RefreshMarketDataButton />
+          <RefreshFundamentalsButton />
+        </div>
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
