@@ -3,6 +3,9 @@ import { createClientFromRequest } from '../_shared/base44Compat.ts';
 
 const TOP_UP_AMOUNT = 5000;
 
+// Financial writes go through asServiceRole after auth + ownership checks.
+// Clients must not be able to invent balances via PostgREST; RLS write policies
+// on cash/transactions are removed in a companion migration.
 async function handler(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
@@ -15,16 +18,19 @@ async function handler(req: Request) {
     }, '-created_date', 1);
     const account = accounts[0];
     if (!account) return Response.json({ error: 'Demo cash account not found.' }, { status: 404 });
+    if (account.created_by_id && account.created_by_id !== user.id) {
+      return Response.json({ error: 'Forbidden.' }, { status: 403 });
+    }
 
     const current = Number(account.balance) || 0;
     const newBalance = current + TOP_UP_AMOUNT;
-    const updated = await base44.entities.CashAccount.update(account.id, {
+    const updated = await base44.asServiceRole.entities.CashAccount.update(account.id, {
       balance: newBalance,
       available: newBalance,
     });
 
     try {
-      await base44.entities.Transaction.create({
+      await base44.asServiceRole.entities.Transaction.create({
         type: 'deposit',
         amount: TOP_UP_AMOUNT,
         currency: 'BWP',
@@ -33,9 +39,8 @@ async function handler(req: Request) {
         created_by_id: user.id,
       });
     } catch (txError) {
-      // Best effort rollback so the balance is not increased without its ledger entry.
       try {
-        await base44.entities.CashAccount.update(account.id, {
+        await base44.asServiceRole.entities.CashAccount.update(account.id, {
           balance: current,
           available: current,
         });
@@ -44,7 +49,7 @@ async function handler(req: Request) {
     }
 
     try {
-      await base44.entities.Notification.create({
+      await base44.asServiceRole.entities.Notification.create({
         title: 'Cash topped up',
         body: 'P5,000 demo cash added to your account.',
         type: 'success',

@@ -1,10 +1,8 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
 
-// Server-side goal deletion. Ownership is enforced via RLS on the user-scoped
-// client; we still load the row first so we can return a clear 404 and refuse
-// cross-user deletes if created_by_id is present. Contribution history is left
-// intact (ledger) — only the goal row is removed.
+// Server-side goal deletion. Load via user-scoped client (RLS select), then
+// delete via service role so client write policies can be removed safely.
 async function handler(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
@@ -21,7 +19,7 @@ async function handler(req: Request) {
       return Response.json({ error: 'Forbidden.' }, { status: 403 });
     }
 
-    await base44.entities.Goal.delete(goal_id);
+    await base44.asServiceRole.entities.Goal.delete(goal_id);
     return Response.json({ ok: true, deleted: goal_id });
   } catch (e) {
     return Response.json(
