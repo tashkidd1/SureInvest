@@ -1,213 +1,62 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
 import { recordSnapshot } from '../_shared/snapshot.ts';
-import { getUsdBwpRate, nativeToBwp } from '../_shared/currency.ts';
-// Server-side validated simulated buy/sell with multi-currency support. The
-// asset price stays in its native currency (USD/BWP); the BWP cash impact is
-// computed server-side from the trusted cached USD/BWP rate. The client never
-// supplies the rate or BWP totals. client_ref keeps the order idempotent.
-//
-// Financial writes use asServiceRole with explicit created_by_id so client RLS
-// write policies can be removed safely. Reads stay user-scoped (SELECT ok).
+import { createClient } from 'npm:@supabase/supabase-js@2';
+// Server-side validated simulated buy/sell. Financial mutation runs inside
+// execute_trade_atomic (single Postgres transaction with cash-row lock and
+// user-scoped client_ref idempotency).
+
+function serviceRpcClient() {
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  return createClient(url, key);
+}
+
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
     const body = await req.json().catch(() => ({})) || {};
     const action = body.action === 'sell' ? 'sell' : 'buy';
     const investment_id = (body.investment_id || '').toString();
     const units = Number(body.units);
     const client_ref = (body.client_ref || '').toString().slice(0, 80);
-    if (!investment_id) return Response.json({ error: 'An investment is required.' }, { status: 400 });
-    if (!Number.isFinite(units) || units <= 0) return Response.json({ error: 'Enter a valid number of units.' }, { status: 400 });
-    // Account context — Demo (virtual simulation) or Real. Real-account trading
-    // is NOT enabled yet; the backend rejects it independently of the UI.
     const account_type = body.account_type === 'real' ? 'real' : 'demo';
-    if (account_type === 'real') {
-      return Response.json({ error: 'Real account trading is not yet enabled.' }, { status: 400 });
+
+    if (!investment_id) return Response.json({ error: 'An investment is required.' }, { status: 400 });
+    if (!Number.isFinite(units) || units <= 0) {
+      return Response.json({ error: 'Enter a valid number of units.' }, { status: 400 });
     }
-    // Idempotency guard — never execute the same client_ref twice.
-    if (client_ref) {
-      const dupe = await base44.asServiceRole.entities.Transaction.filter({ client_ref });
-      if (dupe[0]) {
-        return Response.json({
-          ok: true,
-          duplicate: true,
-          action: dupe[0].type,
-          units: dupe[0].units,
-          price: dupe[0].price,
-          total: Math.abs(dupe[0].amount),
-          message: 'This order was already processed.',
-        });
-      }
+
+    const sb = serviceRpcClient();
+    const { data, error } = await sb.rpc('execute_trade_atomic', {
+      p_user_id: user.id,
+      p_action: action,
+      p_investment_id: investment_id,
+      p_units: units,
+      p_account_type: account_type,
+      p_client_ref: client_ref || null,
+    });
+
+    if (error) {
+      return Response.json({ error: error.message || 'Trade failed' }, { status: 500 });
     }
-    const inv = await base44.asServiceRole.entities.Investment.get(investment_id);
-    if (!inv) return Response.json({ error: 'Investment not found.' }, { status: 404 });
-    const price = Number(inv.price) || 0;
-    if (price <= 0) return Response.json({ error: 'No price available for this investment.' }, { status: 400 });
-    const currency = inv.currency || 'BWP';
-    // Trusted cached USD/BWP rate (guaranteed > 0). BWP assets use rate 1.
-    const fx_rate = currency === 'BWP' ? 1 : await getUsdBwpRate(base44);
-    const native_total = price * units;
-    const bwp_total = nativeToBwp(native_total, currency, fx_rate);
-    // User-scoped reads (SELECT policies remain). Filter account_type in JS.
-    const cashAccounts = await base44.entities.CashAccount.list("-created_date", 10);
-    const cash = cashAccounts.find((c) => (c.account_type || 'demo') === account_type) || null;
-    if (!cash) return Response.json({ error: 'No cash account found. Please complete onboarding first.' }, { status: 400 });
-    if (cash.created_by_id && cash.created_by_id !== user.id) {
-      return Response.json({ error: 'Forbidden.' }, { status: 403 });
+
+    if (data?.error) {
+      const status = Number(data.status) || 400;
+      const { status: _s, ...payload } = data;
+      return Response.json(payload, { status });
     }
-    const allHoldings = await base44.entities.Holding.list("-created_date", 200);
-    // Primary relationship is investment_id; ticker is a legacy fallback.
-    const matches = allHoldings.filter((h) => (h.account_type || 'demo') === account_type && (h.investment_id === inv.id || h.ticker === inv.ticker));
-    let holding = matches[0] || null;
-    // Consolidate any legacy duplicate holdings for this investment into one
-    // (sum units, recompute weighted-average cost in native + BWP), so a single
-    // position is maintained per user per investment.
-    if (matches.length > 1) {
-      const totalUnits = matches.reduce((s, h) => s + (Number(h.units) || 0), 0);
-      const totalCostNative = matches.reduce((s, h) => s + (Number(h.units) || 0) * (Number(h.avg_cost) || 0), 0);
-      const mergedAvg = totalUnits > 0 ? totalCostNative / totalUnits : 0;
-      const totalCostBwp = matches.reduce((s, h) => {
-        const ub = Number(h.avg_cost_bwp);
-        const unit = Number.isFinite(ub) && ub > 0 ? ub : nativeToBwp(Number(h.avg_cost) || 0, h.currency || currency, fx_rate);
-        return s + (Number(h.units) || 0) * unit;
-      }, 0);
-      const mergedAvgBwp = totalUnits > 0 ? totalCostBwp / totalUnits : 0;
-      await base44.asServiceRole.entities.Holding.update(matches[0].id, {
-        units: totalUnits, avg_cost: mergedAvg, avg_cost_bwp: mergedAvgBwp,
-        current_price: price, currency, investment_id: inv.id,
-      });
-      for (let i = 1; i < matches.length; i++) {
-        await base44.asServiceRole.entities.Holding.delete(matches[i].id);
-      }
-      holding = { ...matches[0], units: totalUnits, avg_cost: mergedAvg, avg_cost_bwp: mergedAvgBwp, current_price: price, currency, investment_id: inv.id };
-    }
-    if (action === 'buy') {
-      if (Number(cash.balance) < bwp_total) {
-        return Response.json({ error: 'Insufficient cash for this purchase.' }, { status: 400 });
-      }
-      const newBalance = Number(cash.balance) - bwp_total;
-      await base44.asServiceRole.entities.CashAccount.update(cash.id, { balance: newBalance, available: newBalance });
-      const bwp_unit_cost = nativeToBwp(price, currency, fx_rate);
-      if (holding) {
-        const u0 = Number(holding.units) || 0;
-        const prevAvgBwp = Number(holding.avg_cost_bwp);
-        const c0 = Number.isFinite(prevAvgBwp) && prevAvgBwp > 0
-          ? prevAvgBwp
-          : nativeToBwp(Number(holding.avg_cost) || 0, holding.currency || currency, fx_rate);
-        const newUnits = u0 + units;
-        const newAvgNative = (u0 * (Number(holding.avg_cost) || 0) + units * price) / newUnits;
-        const newAvgBwp = (u0 * c0 + units * bwp_unit_cost) / newUnits;
-        await base44.asServiceRole.entities.Holding.update(holding.id, {
-          units: newUnits,
-          avg_cost: newAvgNative,
-          avg_cost_bwp: newAvgBwp,
-          current_price: price,
-          currency,
-          investment_id: inv.id,
-        });
-      } else {
-        await base44.asServiceRole.entities.Holding.create({
-          ticker: inv.ticker,
-          name: inv.name,
-          units,
-          avg_cost: price,
-          avg_cost_bwp: bwp_unit_cost,
-          current_price: price,
-          currency,
-          sector: inv.sector,
-          investment_id: inv.id,
-          account_type,
-          created_by_id: user.id,
-        });
-      }
-      await base44.asServiceRole.entities.Transaction.create({
-        type: 'buy',
-        ticker: inv.ticker,
-        name: inv.name,
-        units,
-        price,
-        currency,
-        fx_rate,
-        fees: 0,
-        amount: -bwp_total,
-        status: 'completed',
-        description: `Bought ${units} ${inv.ticker} @ ${price} ${currency} (≈P${bwp_total.toFixed(2)})`,
-        client_ref: client_ref || undefined,
-        account_type,
-        created_by_id: user.id,
-      });
+
+    if (!data?.duplicate) {
       try {
-        await base44.asServiceRole.entities.Notification.create({
-          title: 'Purchase completed',
-          body: `You bought ${units} ${inv.ticker} for ${currency} ${native_total.toFixed(2)} (≈P${bwp_total.toFixed(2)}).`,
-          type: 'trade',
-          created_by_id: user.id,
-        });
-      } catch (_) {}
-      await recordSnapshot(base44, user.id, account_type);
-      return Response.json({
-        ok: true,
-        action: 'buy',
-        units,
-        price,
-        currency,
-        fx_rate,
-        native_total,
-        total: bwp_total,
-        cash_balance: newBalance,
-      });
+        await recordSnapshot(base44, user.id, account_type);
+      } catch (_e) { /* non-fatal */ }
     }
-    // SELL
-    if (!holding || Number(holding.units) < units) {
-      return Response.json({ error: 'You do not own enough units to sell.' }, { status: 400 });
-    }
-    const newBalance = Number(cash.balance) + bwp_total;
-    await base44.asServiceRole.entities.CashAccount.update(cash.id, { balance: newBalance, available: newBalance });
-    const remaining = Number(holding.units) - units;
-    if (remaining > 0) {
-      await base44.asServiceRole.entities.Holding.update(holding.id, { units: remaining, current_price: price });
-    } else {
-      await base44.asServiceRole.entities.Holding.delete(holding.id);
-    }
-    await base44.asServiceRole.entities.Transaction.create({
-      type: 'sell',
-      ticker: inv.ticker,
-      name: inv.name,
-      units,
-      price,
-      currency,
-      fx_rate,
-      fees: 0,
-      amount: bwp_total,
-      status: 'completed',
-      description: `Sold ${units} ${inv.ticker} @ ${price} ${currency} (≈P${bwp_total.toFixed(2)})`,
-      client_ref: client_ref || undefined,
-      account_type,
-      created_by_id: user.id,
-    });
-    try {
-      await base44.asServiceRole.entities.Notification.create({
-        title: 'Sale completed',
-        body: `You sold ${units} ${inv.ticker} for ${currency} ${native_total.toFixed(2)} (≈P${bwp_total.toFixed(2)}).`,
-        type: 'trade',
-        created_by_id: user.id,
-      });
-    } catch (_) {}
-    await recordSnapshot(base44, user.id, account_type);
-    return Response.json({
-      ok: true,
-      action: 'sell',
-      units,
-      price,
-      currency,
-      fx_rate,
-      native_total,
-      total: bwp_total,
-      cash_balance: newBalance,
-    });
+
+    return Response.json(data);
   } catch (error) {
     return Response.json({ error: error.message || 'Trade failed' }, { status: 500 });
   }

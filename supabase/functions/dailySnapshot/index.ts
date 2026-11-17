@@ -1,14 +1,22 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
 import { recordSnapshotForUser } from '../_shared/snapshot.ts';
+import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 // Scheduled job (not user-invoked): takes a snapshot for every user/account
 // space that has a cash account, using current market prices, regardless of
 // whether that user traded today. Fixes the gap where snapshots previously
 // only happened as a side effect of a trade or goal contribution, leaving a
 // passive holder's performance chart blank on days they didn't act.
+//
+// Auth: CRON_SECRET bearer token, or an authenticated admin. Anonymous rejected.
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_e) { user = null; }
+    const gate = requireSchedulerOrAdmin(req, user);
+    if (!gate.ok) return gate.response;
+
     // No RLS-scoped "caller" in a scheduled job — asServiceRole sees every
     // user's cash accounts, which is also the full roster of onboarded users.
     const cashAccounts = await base44.asServiceRole.entities.CashAccount.list();
@@ -26,7 +34,13 @@ async function handler(req) {
         failed += 1;
       }
     }
-    return Response.json({ ok: true, accounts_snapshotted: created, failed, total: seen.size });
+    return Response.json({
+      ok: true,
+      accounts_snapshotted: created,
+      failed,
+      total: seen.size,
+      auth_mode: gate.mode,
+    });
   } catch (error) {
     return Response.json({ error: error?.message || 'Snapshot job failed.' }, { status: 500 });
   }

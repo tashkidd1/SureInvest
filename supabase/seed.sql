@@ -6,17 +6,18 @@
 -- (Supabase Studio > Table Editor, at http://127.0.0.1:54323 once `supabase
 -- start` is running), or re-enter what you remember from the live app.
 
-insert into public.investments (ticker, name, category, market, exchange, currency, price, is_demo, featured) values
-  ('AAPL', 'Apple Inc.', 'equity', 'global', 'NASDAQ', 'USD', 220.00, true, true),
-  ('MSFT', 'Microsoft Corporation', 'equity', 'global', 'NASDAQ', 'USD', 430.00, true, true),
-  ('NVDA', 'NVIDIA Corporation', 'equity', 'global', 'NASDAQ', 'USD', 130.00, true, true),
-  ('KO', 'The Coca-Cola Company', 'equity', 'global', 'NYSE', 'USD', 68.00, true, false),
-  ('AMZN', 'Amazon.com, Inc.', 'equity', 'global', 'NASDAQ', 'USD', 185.00, true, false),
-  ('SPY', 'SPDR S&P 500 ETF Trust', 'etf', 'global', 'NYSE', 'USD', 560.00, true, true),
-  ('VXUS', 'Vanguard Total International Stock ETF', 'etf', 'global', 'NASDAQ', 'USD', 62.00, true, false),
-  ('VNQ', 'Vanguard Real Estate ETF', 'reit', 'global', 'NYSE', 'USD', 92.00, true, false),
-  ('VIG', 'Vanguard Dividend Appreciation ETF', 'etf', 'global', 'NYSE', 'USD', 185.00, true, false),
-  ('BTC/USD', 'Bitcoin', 'digital', 'global', 'Crypto', 'USD', 62000.00, true, false)
+-- Global rows are explicitly data_source='seeded' (not live provider data).
+insert into public.investments (ticker, name, category, market, exchange, currency, price, is_demo, featured, data_source) values
+  ('AAPL', 'Apple Inc.', 'equity', 'global', 'NASDAQ', 'USD', 220.00, true, true, 'seeded'),
+  ('MSFT', 'Microsoft Corporation', 'equity', 'global', 'NASDAQ', 'USD', 430.00, true, true, 'seeded'),
+  ('NVDA', 'NVIDIA Corporation', 'equity', 'global', 'NASDAQ', 'USD', 130.00, true, true, 'seeded'),
+  ('KO', 'The Coca-Cola Company', 'equity', 'global', 'NYSE', 'USD', 68.00, true, false, 'seeded'),
+  ('AMZN', 'Amazon.com, Inc.', 'equity', 'global', 'NASDAQ', 'USD', 185.00, true, false, 'seeded'),
+  ('SPY', 'SPDR S&P 500 ETF Trust', 'etf', 'global', 'NYSE', 'USD', 560.00, true, true, 'seeded'),
+  ('VXUS', 'Vanguard Total International Stock ETF', 'etf', 'global', 'NASDAQ', 'USD', 62.00, true, false, 'seeded'),
+  ('VNQ', 'Vanguard Real Estate ETF', 'reit', 'global', 'NYSE', 'USD', 92.00, true, false, 'seeded'),
+  ('VIG', 'Vanguard Dividend Appreciation ETF', 'etf', 'global', 'NYSE', 'USD', 185.00, true, false, 'seeded'),
+  ('BTC/USD', 'Bitcoin', 'digital', 'global', 'Crypto', 'USD', 62000.00, true, false, 'seeded')
 on conflict do nothing;
 
 insert into public.exchange_rates (base, quote, rate, source) values
@@ -27,6 +28,7 @@ on conflict do nothing;
 -- match exactly what refreshBse() expects. LETL and SECH use SureInvest's
 -- own ticker codes (per TICKER_ALIASES in mansaProvider.ts: LETL->LETS,
 -- SECH->SECHABA on the Mansa side) — everything else matches Mansa directly.
+-- data_source='mansa' records provenance of the initial snapshot prices.
 insert into public.investments (ticker, name, category, market, exchange, currency, price, is_demo, featured, data_source) values
   ('ACCESS', 'Access Bank Botswana Limited', 'equity', 'botswana', 'BSE', 'BWP', 2.04, true, false, 'mansa'),
   ('ADBF', 'ADBFUND', 'etf', 'botswana', 'BSE', 'BWP', 107.80, true, false, 'mansa'),
