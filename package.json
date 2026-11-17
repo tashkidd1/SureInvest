@@ -9,7 +9,10 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:db": "echo Run: psql $DATABASE_URL -v ON_ERROR_STOP=1 -f supabase/tests/rls_and_integrity.sql",
+    "test:fn": "deno test --allow-env supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts",
+    "test": "npm run test:fn"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

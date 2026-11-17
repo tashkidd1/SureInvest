@@ -14,6 +14,8 @@ const SUGGESTIONS = [
   "How am I progressing toward my goals?",
 ];
 
+const MAX_HISTORY_TURNS = 6;
+
 export default function InvestAssistant() {
   const [messages, setMessages] = useState([
     {
@@ -32,8 +34,16 @@ export default function InvestAssistant() {
     setInput("");
     setLoading(true);
     try {
-      // base44.functions.invoke returns the Edge Function JSON body directly.
-      const res = await base44.functions.invoke("investAssistant", { question: prompt });
+      // Send prior turns (excluding the welcome bubble) so the model keeps context.
+      const history = next
+        .filter((m, i) => i > 0 && (m.role === "user" || m.role === "assistant"))
+        .slice(-MAX_HISTORY_TURNS * 2)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const res = await base44.functions.invoke("investAssistant", {
+        question: prompt,
+        history,
+      });
       const answer =
         (typeof res?.answer === "string" && res.answer) ||
         (typeof res?.data?.answer === "string" && res.data.answer) ||

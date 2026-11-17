@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { BRAND } from "@/lib/brand";
 import { Loader2, Sparkles, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 const EXPERIENCE = [
   { key: "beginner", label: "Beginner", desc: "New to investing" },
   { key: "some", label: "Some experience", desc: "I know the basics" },
@@ -20,17 +21,22 @@ const GOALS = [
   { key: "emergency", label: "Emergency fund" },
   { key: "general", label: "General investing" },
 ];
+const RISK = [
+  { key: "conservative", label: "Conservative", desc: "Prefer stability over growth" },
+  { key: "moderate", label: "Moderate", desc: "Balanced risk and return" },
+  { key: "aggressive", label: "Aggressive", desc: "Comfortable with larger swings" },
+];
+
 export default function Onboarding({ onComplete }) {
   const [step, setStep] = useState(0);
   const [experience, setExperience] = useState("");
   const [goal, setGoal] = useState("");
+  const [risk, setRisk] = useState("");
   const [firstName, setFirstName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(true);
-  // Resume at the correct incomplete step if a partial profile already exists.
-  // Once onboarding_completed is true, AppLayout never renders this component,
-  // so this only runs for genuinely incomplete onboarding.
+
   useEffect(() => {
     let cancelled = false;
     base44.entities.Profile.list("-created_date", 1)
@@ -42,6 +48,10 @@ export default function Onboarding({ onComplete }) {
             setExperience(prof.experience_level);
             setStep(1);
           }
+          if (prof.primary_goal && prof.primary_goal !== "general") {
+            setGoal(prof.primary_goal);
+          }
+          if (prof.risk_tolerance) setRisk(prof.risk_tolerance);
           if (prof.first_name) setFirstName(prof.first_name || "");
         }
       })
@@ -49,19 +59,18 @@ export default function Onboarding({ onComplete }) {
       .finally(() => { if (!cancelled) setChecking(false); });
     return () => { cancelled = true; };
   }, []);
+
   const finish = async () => {
-    if (loading) return; // double-submit guard
+    if (loading) return;
     setLoading(true);
     setError("");
     try {
       await base44.functions.invoke("onboardUser", {
         experience_level: experience,
         primary_goal: goal,
+        risk_tolerance: risk || "moderate",
         first_name: firstName,
       });
-      // Backend persisted onboarding_completed = true. Hard reload guarantees a
-      // clean app re-init so the persisted profile is picked up and the user
-      // lands on the dashboard — no stale state, no stuck onboarding screen.
       if (typeof onComplete === "function") {
         try { await onComplete(); } catch {}
       }
@@ -71,6 +80,7 @@ export default function Onboarding({ onComplete }) {
       setLoading(false);
     }
   };
+
   if (checking) {
     return (
       <div className="grid min-h-screen place-items-center bg-background">
@@ -78,6 +88,7 @@ export default function Onboarding({ onComplete }) {
       </div>
     );
   }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-4 py-10">
@@ -94,6 +105,17 @@ export default function Onboarding({ onComplete }) {
             <p className="mt-1 text-sm text-primary-foreground/80">
               You'll start with <strong>P10,000</strong> in virtual cash to explore and practise — no real money involved.
             </p>
+            <div className="mt-4 flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "h-1 flex-1 rounded-full",
+                    i <= step ? "bg-primary-foreground" : "bg-primary-foreground/30"
+                  )}
+                />
+              ))}
+            </div>
           </div>
           <div className="p-6">
             {error && (
@@ -112,6 +134,7 @@ export default function Onboarding({ onComplete }) {
                   {EXPERIENCE.map((e) => (
                     <button
                       key={e.key}
+                      type="button"
                       onClick={() => setExperience(e.key)}
                       className={cn(
                         "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
@@ -143,6 +166,7 @@ export default function Onboarding({ onComplete }) {
                   {GOALS.map((g) => (
                     <button
                       key={g.key}
+                      type="button"
                       onClick={() => setGoal(g.key)}
                       className={cn(
                         "rounded-xl border p-4 text-left text-sm font-medium transition-colors",
@@ -153,13 +177,46 @@ export default function Onboarding({ onComplete }) {
                     </button>
                   ))}
                 </div>
+                <div className="flex justify-between pt-2">
+                  <Button variant="outline" onClick={() => setStep(0)}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
+                  <Button onClick={() => setStep(2)} disabled={!goal}>Continue <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
+                </div>
+              </div>
+            )}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="font-display text-lg font-semibold">How do you feel about risk?</h2>
+                  <p className="text-sm text-muted-foreground">Used only to personalise educational tips — not for advice.</p>
+                </div>
+                <div className="space-y-2.5">
+                  {RISK.map((r) => (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setRisk(r.key)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl border p-4 text-left transition-colors",
+                        risk === r.key ? "border-primary bg-primary-soft/60" : "border-border hover:border-primary/40"
+                      )}
+                    >
+                      <div>
+                        <div className="font-medium text-sm">{r.label}</div>
+                        <div className="text-xs text-muted-foreground">{r.desc}</div>
+                      </div>
+                      <div className={cn("grid h-5 w-5 place-items-center rounded-full border", risk === r.key ? "border-primary bg-primary text-primary-foreground" : "border-border")}>
+                        {risk === r.key && <ShieldCheck className="h-3 w-3" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
                 <div className="space-y-1.5 pt-1">
                   <Label htmlFor="first">Your first name (optional)</Label>
                   <Input id="first" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Thabo" />
                 </div>
                 <div className="flex justify-between pt-2">
-                  <Button variant="outline" onClick={() => setStep(0)} disabled={loading}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
-                  <Button onClick={finish} disabled={!goal || loading}>
+                  <Button variant="outline" onClick={() => setStep(1)} disabled={loading}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
+                  <Button onClick={finish} disabled={!risk || loading}>
                     {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                     Open my account
                   </Button>

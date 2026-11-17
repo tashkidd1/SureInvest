@@ -1,30 +1,27 @@
-// MarketDataService — provider-independent refresh orchestration. Coordinates
-// the Twelve Data (global) and Mansa (BSE) providers, applies the centralized
-// request budget, writes the Investment / ExchangeRate caches, and returns a
-// unified result. Provider failures are isolated: one provider failing never
-// blocks or corrupts the other, and cached prices are always retained.
+// MarketDataService — provider-independent refresh orchestration.
+// Coordinates Twelve Data (global) and Mansa (BSE), applies centralized
+// request budgets, writes Investment / ExchangeRate caches, and returns a
+// unified result. Provider failures are isolated; cached prices are retained.
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
-import { checkMansaBudget, recentBseSnapshot, recentRequest, logProviderRequest } from './requestBudget.ts';
-// Locked Global Market V1 set. Free Twelve Data plan = 8 API credits/minute; a
-// batched /quote counts one credit per symbol, so only the PER_CALL stalest
-// symbols are refreshed each run — repeated calls rotate through the set.
+import {
+  assertMansaRequestAllowed,
+  recentGlobalQuotes,
+  recentFxRefresh,
+  logProviderRequest,
+  GLOBAL_MIN_INTERVAL_MS,
+  FX_MIN_INTERVAL_MS,
+} from './requestBudget.ts';
+
 const GLOBAL_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'KO', 'AMZN', 'SPY', 'VXUS', 'VNQ', 'VIG', 'BTC/USD'];
 const GLOBAL_PER_CALL = 6;
-// One-time chart backfill via /time_series (free-tier endpoint), capped low
-// per run so it never competes meaningfully with the quote budget above —
-// it naturally stops once every symbol has a non-empty historical_prices.
 const HISTORY_BACKFILL_PER_RUN = 2;
+const INDEX_REFRESH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
-// Builds the historical_prices/history_last_appended update for one row:
-// a one-time backfill (via Twelve Data's free /time_series) if history is
-// empty, otherwise one appended point per calendar day. Returns {} when
-// today's point was already appended (nothing to change).
 function nextHistory(inv, price, today, backfillPrices) {
   const existing = Array.isArray(inv.historical_prices) ? inv.historical_prices : [];
   if (backfillPrices && backfillPrices.length) {
-    // A real 30-day series is always preferable to whatever thin history
-    // (0-4 points) accumulated before backfill quota reached this symbol.
     return { historical_prices: backfillPrices.slice(-90), history_last_appended: today };
   }
   if (inv.history_last_appended === today) return {};
@@ -32,6 +29,19 @@ function nextHistory(inv, price, today, backfillPrices) {
 }
 
 async function refreshGlobal(base44, apiKey, now) {
+  // Throttle: skip network if a successful global run was recent — serve cache.
+  const fresh = await recentGlobalQuotes(base44, GLOBAL_MIN_INTERVAL_MS);
+  if (fresh) {
+    return {
+      status: 'fresh',
+      attempted: [],
+      updated: 0,
+      failed: 0,
+      stale_cache: true,
+      message: `Global: last refresh ${fresh.ageMinutes} min ago — cached prices retained (quota conserved).`,
+    };
+  }
+
   const today = now.slice(0, 10);
   const rows = await base44.asServiceRole.entities.Investment.filter({ market: 'global' });
   const targets = rows
@@ -48,9 +58,17 @@ async function refreshGlobal(base44, apiKey, now) {
     status: result.ok ? 'success' : 'error',
     http_status: result.httpStatus,
     error_summary: result.error,
+    securities_updated: result.ok ? Object.keys(result.quotes || {}).length : 0,
   });
   if (!result.ok) {
-    return { status: 'provider_error', attempted: symbols, updated: 0, failed: symbols.length, message: `${result.error}. Cached / seeded prices retained.` };
+    return {
+      status: 'provider_error',
+      attempted: symbols,
+      updated: 0,
+      failed: symbols.length,
+      stale_cache: true,
+      message: `${result.error}. Cached / seeded prices retained.`,
+    };
   }
   let updated = 0;
   let failed = 0;
@@ -64,6 +82,13 @@ async function refreshGlobal(base44, apiKey, now) {
       if ((!inv.historical_prices || inv.historical_prices.length < 5) && backfillsLeft > 0) {
         const series = await fetchTimeSeries(apiKey, inv.ticker, 30);
         backfillsLeft -= 1;
+        await logProviderRequest(base44, {
+          provider: 'twelve_data',
+          category: 'global_history',
+          status: series.ok ? 'success' : 'error',
+          http_status: series.httpStatus,
+          securities_updated: series.ok ? 1 : 0,
+        });
         if (series.ok && series.prices.length) backfillPrices = series.prices;
       }
       await base44.asServiceRole.entities.Investment.update(inv.id, {
@@ -79,37 +104,61 @@ async function refreshGlobal(base44, apiKey, now) {
       updated += 1;
       updatedSymbols.push(inv.ticker);
     } catch (_e) {
-      // per-symbol failure: keep existing cache for this symbol
       failed += 1;
     }
   }
   const status = updated > 0 ? 'updated' : (failed > 0 ? 'provider_error' : 'no_change');
-  return { status, attempted: symbols, updated, failed, updatedSymbols, message: `Global: refreshed ${updated}/${symbols.length} prices (stalest ${GLOBAL_PER_CALL} of ${GLOBAL_SYMBOLS.length}).` };
+  return {
+    status,
+    attempted: symbols,
+    updated,
+    failed,
+    updatedSymbols,
+    stale_cache: updated === 0,
+    message: `Global: refreshed ${updated}/${symbols.length} prices (stalest ${GLOBAL_PER_CALL} of ${GLOBAL_SYMBOLS.length}).`,
+  };
 }
+
 async function refreshBse(base44, apiKey, now) {
   const today = now.slice(0, 10);
-  // Conserve quota: skip if a fresh snapshot was already ingested recently
-  // (Mansa snapshots refresh every 30 minutes).
-  const fresh = await recentBseSnapshot(base44);
-  if (fresh) {
-    return { status: 'fresh', attempted: false, updated: 0, failed: 0, message: `BSE: snapshot ingested ${fresh.ageMinutes} min ago — cached prices retained (quota conserved).` };
+  const gate = await assertMansaRequestAllowed(base44, 'bse_snapshot', SNAPSHOT_MIN_INTERVAL_MS);
+  if (!gate.allowed) {
+    if (gate.reason === 'fresh') {
+      return {
+        status: 'fresh',
+        attempted: false,
+        updated: 0,
+        failed: 0,
+        stale_cache: true,
+        message: `BSE: snapshot ingested ${gate.fresh.ageMinutes} min ago — cached prices retained (quota conserved).`,
+      };
+    }
+    return {
+      status: 'deferred',
+      attempted: false,
+      updated: 0,
+      failed: 0,
+      stale_cache: true,
+      message: `BSE: Mansa daily budget reached (${gate.used}/${gate.ceiling}) — cached prices retained.`,
+    };
   }
-  const budget = await checkMansaBudget(base44);
-  if (!budget.allowed) {
-    return { status: 'deferred', attempted: false, updated: 0, failed: 0, message: `BSE: Mansa daily budget reached (${budget.used}/${budget.ceiling}) — cached prices retained.` };
-  }
-  // One shared snapshot request covers the whole exchange (and the active
-  // SureInvest basket of curated BSE securities).
+
   const result = await fetchBseSnapshot(apiKey);
   if (!result.ok) {
     await logProviderRequest(base44, {
       provider: 'mansa', category: 'bse_snapshot', status: 'error',
       http_status: result.httpStatus, error_summary: result.error,
     });
-    return { status: 'provider_error', attempted: true, updated: 0, failed: 0, message: `BSE: ${result.error}. Cached prices retained.` };
+    return {
+      status: 'provider_error',
+      attempted: true,
+      updated: 0,
+      failed: 0,
+      stale_cache: true,
+      message: `BSE: ${result.error}. Cached prices retained.`,
+    };
   }
-  // Match quotes to EXISTING curated Investment rows only — never create,
-  // duplicate or replace catalogue records.
+
   const rows = await base44.asServiceRole.entities.Investment.filter({ market: 'botswana' });
   let updated = 0;
   let failed = 0;
@@ -126,8 +175,6 @@ async function refreshBse(base44, apiKey, now) {
         currency: q.currency || inv.currency,
         data_source: 'mansa',
         last_updated: now,
-        // Mansa's free tier has no historical endpoint, so BSE charts build
-        // up one real point per day from here on rather than a backfill.
         ...nextHistory(inv, q.price, today, null),
       });
       updated += 1;
@@ -144,18 +191,14 @@ async function refreshBse(base44, apiKey, now) {
   const message = updated > 0
     ? `BSE: refreshed ${updated} curated securities from the Mansa snapshot.`
     : 'BSE: no curated securities matched the Mansa snapshot — seeded prices retained.';
-  return { status, attempted: true, updated, failed, updatedSymbols, message };
+  return { status, attempted: true, updated, failed, updatedSymbols, stale_cache: updated === 0, message };
 }
-// USD/BWP FX refresh (Twelve Data, independent of the global quotes outcome).
-// Any failure keeps the cached/fallback rate — never zeroed.
-// BSE index history (e.g. "BSE DCI") — a free-tier endpoint (unlike the
-// paywalled per-stock history route), so this replaces the whole cached
-// series each refresh rather than accumulating day by day. Gated to once
-// per 24h since the endpoint returns months of history in one call.
-const INDEX_REFRESH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 async function refreshBseIndex(base44, apiKey, now) {
-  const fresh = await recentRequest(base44, 'bse_index', INDEX_REFRESH_MIN_INTERVAL_MS);
-  if (fresh) return; // conserve quota — index history changes at most daily
+  // Budget + freshness gate — index calls count toward the daily Mansa ceiling.
+  const gate = await assertMansaRequestAllowed(base44, 'bse_index', INDEX_REFRESH_MIN_INTERVAL_MS);
+  if (!gate.allowed) return; // conserve quota; cache retained
+
   try {
     const result = await fetchBseIndexHistory(apiKey, 'BSE', 'DCI', '1Y');
     await logProviderRequest(base44, {
@@ -175,19 +218,33 @@ async function refreshBseIndex(base44, apiKey, now) {
       await base44.asServiceRole.entities.MarketIndex.create({ code: 'BSE DCI', ...fields });
     }
   } catch (_e) {
-    // best-effort — never let this break the main refresh
+    // best-effort
   }
 }
+
 async function refreshFx(base44, apiKey, now) {
+  const fresh = await recentFxRefresh(base44, FX_MIN_INTERVAL_MS);
+  if (fresh) return null; // keep cached rate
+
   try {
     const result = await fetchUsdBwpRate(apiKey);
+    await logProviderRequest(base44, {
+      provider: 'twelve_data',
+      category: 'fx_usd_bwp',
+      status: result.ok ? 'success' : 'error',
+      http_status: result.httpStatus,
+    });
     if (result.ok && result.rate) {
       const existing = await base44.asServiceRole.entities.ExchangeRate.list('-last_updated', 10);
       const row = existing.find((r) => r.base === 'USD' && r.quote === 'BWP');
       if (row) {
-        await base44.asServiceRole.entities.ExchangeRate.update(row.id, { rate: result.rate, source: 'twelve_data', last_updated: now });
+        await base44.asServiceRole.entities.ExchangeRate.update(row.id, {
+          rate: result.rate, source: 'twelve_data', last_updated: now,
+        });
       } else {
-        await base44.asServiceRole.entities.ExchangeRate.create({ base: 'USD', quote: 'BWP', rate: result.rate, source: 'twelve_data', last_updated: now });
+        await base44.asServiceRole.entities.ExchangeRate.create({
+          base: 'USD', quote: 'BWP', rate: result.rate, source: 'twelve_data', last_updated: now,
+        });
       }
       return result.rate;
     }
@@ -196,9 +253,7 @@ async function refreshFx(base44, apiKey, now) {
   }
   return null;
 }
-// Unified refresh entry point. Returns a result that distinguishes each
-// provider's outcome so callers (manual button or future automation) can
-// report them independently.
+
 export async function runMarketRefresh(base44, config) {
   const now = new Date().toISOString();
   const result = {
@@ -209,43 +264,57 @@ export async function runMarketRefresh(base44, config) {
     fx_rate: null,
     message: '',
   };
-  // Global — Twelve Data
+
   if (!config.twelveDataKey) {
-    result.global = { status: 'no_key', attempted: false, updated: 0, failed: 0, message: 'Global: Twelve Data API key not configured — seeded prices retained.' };
+    result.global = {
+      status: 'no_key', attempted: false, updated: 0, failed: 0, stale_cache: true,
+      message: 'Global: Twelve Data API key not configured — seeded prices retained.',
+    };
   } else {
     try {
       result.global = await refreshGlobal(base44, config.twelveDataKey, now);
     } catch (e) {
-      result.global = { status: 'provider_error', attempted: false, updated: 0, failed: 0, message: `Global: refresh failed (${e.message || 'error'}). Cached prices retained.` };
+      result.global = {
+        status: 'provider_error', attempted: false, updated: 0, failed: 0, stale_cache: true,
+        message: `Global: refresh failed (${e.message || 'error'}). Cached prices retained.`,
+      };
     }
   }
-  // BSE — Mansa
+
   if (!config.mansaKey) {
-    result.bse = { status: 'no_key', attempted: false, updated: 0, failed: 0, message: 'BSE: Mansa API key not configured — seeded prices retained.' };
+    result.bse = {
+      status: 'no_key', attempted: false, updated: 0, failed: 0, stale_cache: true,
+      message: 'BSE: Mansa API key not configured — seeded prices retained.',
+    };
   } else {
     try {
       result.bse = await refreshBse(base44, config.mansaKey, now);
     } catch (e) {
-      result.bse = { status: 'provider_error', attempted: false, updated: 0, failed: 0, message: `BSE: refresh failed (${e.message || 'error'}). Cached prices retained.` };
+      result.bse = {
+        status: 'provider_error', attempted: false, updated: 0, failed: 0, stale_cache: true,
+        message: `BSE: refresh failed (${e.message || 'error'}). Cached prices retained.`,
+      };
     }
   }
-  // BSE index history — best-effort, independent of the per-stock snapshot.
+
   if (config.mansaKey) {
     await refreshBseIndex(base44, config.mansaKey, now);
   }
-  // FX — Twelve Data (preserved existing behaviour)
+
   if (config.twelveDataKey) {
     result.fx_rate = await refreshFx(base44, config.twelveDataKey, now);
   }
-  // Unified status across providers
+
   const gs = result.global.status;
   const bs = result.bse.status;
   const anyUpdated = gs === 'updated' || bs === 'updated';
   const anyError = gs === 'provider_error' || bs === 'provider_error';
   if (gs === 'no_key' && bs === 'no_key') result.status = 'no_key';
   else if (anyError && !anyUpdated) result.status = 'provider_error';
-  else if (anyError || gs === 'deferred' || bs === 'deferred') result.status = 'partial';
-  else result.status = 'ok';
+  else if (anyError || gs === 'deferred' || bs === 'deferred' || gs === 'fresh' || bs === 'fresh') {
+    result.status = anyUpdated ? 'partial' : (gs === 'fresh' || bs === 'fresh' ? 'ok' : 'partial');
+  } else result.status = 'ok';
+
   result.message = `${result.global.message} ${result.bse.message}${result.fx_rate ? ` USD/BWP=${result.fx_rate}.` : ' USD/BWP unchanged.'}`;
   return result;
 }
