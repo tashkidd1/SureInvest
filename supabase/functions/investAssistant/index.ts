@@ -2,8 +2,7 @@ import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
 
 // Educational AI assistant for SureInvest. Educational only — not financial advice.
-// When available, includes a short summary of the caller's simulated (Demo) portfolio
-// so answers can reference holdings/cash/goals without inventing positions.
+// Accepts optional conversation history so multi-turn context is preserved.
 
 function formatPortfolioContext(holdings: any[], cash: number, goals: any[]): string {
   const lines: string[] = [];
@@ -40,6 +39,17 @@ function formatPortfolioContext(holdings: any[], cash: number, goals: any[]): st
   return lines.join('\n');
 }
 
+/** Keep last N turns (user+assistant pairs), truncate long messages. */
+function formatHistory(history: any[], maxTurns = 6): string {
+  if (!Array.isArray(history) || !history.length) return '';
+  const cleaned = history
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    .slice(-maxTurns * 2)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${String(m.content).slice(0, 400)}`);
+  if (!cleaned.length) return '';
+  return `Recent conversation:\n${cleaned.join('\n')}`;
+}
+
 async function handler(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
@@ -52,8 +62,8 @@ async function handler(req: Request) {
       return Response.json({ error: 'A question is required.' }, { status: 400 });
     }
 
-    // Portfolio context: user-scoped reads (SELECT policies). Demo account only
-    // for now — Real trading is disabled and should not feed the assistant.
+    const historyBlock = formatHistory(body?.history);
+
     let portfolioBlock = 'Portfolio context unavailable.';
     try {
       const [allHoldings, allCash, allGoals] = await Promise.all([
@@ -66,7 +76,7 @@ async function handler(req: Request) {
       const goals = (allGoals || []).filter((g: any) => (g.account_type || 'demo') === 'demo');
       portfolioBlock = formatPortfolioContext(holdings, Number(cashRow?.balance) || 0, goals);
     } catch (_) {
-      // Non-fatal: assistant still answers without portfolio context.
+      // Non-fatal
     }
 
     const systemPrompt =
@@ -77,9 +87,11 @@ async function handler(req: Request) {
       'Keep answers concise (under 180 words). ' +
       'You may reference the user\'s simulated Demo portfolio summary below when it helps explain a concept ' +
       '(e.g. diversification of their holdings, progress toward a goal). Never invent holdings, cash, or goals. ' +
+      'If prior conversation is provided, stay consistent with it and do not repeat the full answer unless asked. ' +
       'If asked whether to buy or sell a specific security, refuse advice and explain the underlying concept instead. ' +
-      'If asked about historical prices, say you do not have historical market data and cannot provide it; never invent prices.\n\n' +
-      `User\'s simulated Demo portfolio:\n${portfolioBlock}`;
+      'If asked about historical prices, say you do not have reliable historical market data and cannot provide it; never invent prices.\n\n' +
+      `User\'s simulated Demo portfolio:\n${portfolioBlock}` +
+      (historyBlock ? `\n\n${historyBlock}` : '');
 
     const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `${systemPrompt}\n\nUser question: ${question}`,
