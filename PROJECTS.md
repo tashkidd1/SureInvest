@@ -1,197 +1,191 @@
 # SureInvest — Project Status & Handover
 
-**Last updated:** 18 September 2026 (Grok / xAI session)  
-**Repository:** `tashkidd1/SureInvest`  
-**Application:** SureInvest  
+**Last verified:** 17 November 2026  
+**Repository:** tashkidd1/SureInvest  
+**Default branch:** main  
+**Verified main commit:** 51f9034655614b2e2aeb58cc70515c1d15aa79e5  
 **Stack:** React + Vite + Tailwind + Supabase/Postgres + Supabase Edge Functions
 
 ## 1. Current project state
 
-SureInvest is a Botswana-focused investment education and simulation platform supporting BSE-listed assets and selected global assets.
+SureInvest is a Botswana-focused investment education and simulation platform supporting BSE-listed and selected global assets.
 
-The application is in **product hardening, verification, and feature-completion**. Demo simulated investing is functional. Real-money trading is intentionally disabled.
+**Current assessment: functional beta undergoing security hardening and verification.** Demo simulated investing is implemented. Real-account trading remains disabled. P0 security/integrity code was merged on 17 November, but production deployment and live Supabase configuration have not been verified.
 
-Core areas working:
-- Auth, onboarding, user isolation, Demo/Real separation
-- Simulated cash, buy/sell (including partial sell), holdings, portfolio calcs
-- Transactions, notifications, goals, goal contributions, watchlist
-- Auto-Invest plan CRUD + scheduled execution
-- Market-data refresh (Twelve Data global + Mansa BSE)
-- Portfolio snapshots (cron verified)
-- Learn content, public landing page, responsive navigation
-- **Financial writes locked to service-role Edge Functions** (see §20)
+Implemented areas include authentication and onboarding, Demo/Real separation, simulated cash and trading, holdings, portfolio and transactions, goals and contributions, Auto-Invest, watchlist, notifications, Learn, market-data refresh and portfolio snapshots. Invest Assistant has portfolio context but remains a single-turn backend request flow.
 
----
+## 2. Repository state
 
-## 2–15. Historical notes
+- main points to 51f9034655614b2e2aeb58cc70515c1d15aa79e5.
+- PR #1 — Fix/p0 secure integrity — was merged on 17 November 2026: https://github.com/tashkidd1/SureInvest/pull/1
+- fix/p0-secure-integrity remains present at 278faf945c0985cf15405d05a1c6e72c08a16c79; this is the merged PR head, not an unmerged change set.
+- The merged work adds scheduler authentication, atomic financial RPCs, integrity indexes and a global investment seed-provenance update.
+- This document supersedes the previous 18 September 2026 project status.
 
-Sections covering earlier work (Auto-Invest edit, branding, landing, Learn seeds, snapshots, Mansa, fundamentals blocker, build/lint) remain valid. Key corrections from prior sessions:
+## 3. Security and financial integrity — merged code
 
-- **BSE/Mansa is implemented**, not “planned”. Auth header has no `Bearer` prefix; budget gating, ticker aliases, index history via free endpoint — all done.
-- **Demo cash top-up notifications** were already fixed via `invalidateCash()` in `src/lib/queries.js`.
-- **Fundamentals**: Twelve Data plan lacks `/statistics`. Do **not** seed fake fundamentals.
-- **`base44/`** is compatibility reference only — do not broad-rename.
+### Scheduled function authentication
 
----
+Added supabase/functions/_shared/schedulerAuth.ts. It accepts either:
+1. Authorization: Bearer <CRON_SECRET> (or SCHEDULER_SECRET), or
+2. An authenticated admin JWT for manual/privileged invocation.
 
-## 16. Remaining work / backlog (updated 18 Sep 2026)
+Anonymous callers are rejected. The gate is wired into:
+- dailySnapshot
+- executeRecurringInvestment
+- refreshMarketData
 
-### Done this session (remove from active backlog)
+Deployment/configuration caveat:
+- supabase/config.toml still sets verify_jwt = false for these functions. This is compatible with a custom cron-secret gate, but the in-function check is the effective protection.
+- .env.example documents CRON_SECRET; the production secret is not stored in the repository.
+- **Not verified:** whether the live Supabase project has CRON_SECRET configured, whether the scheduler sends the matching bearer header, and whether the updated Edge Functions have been deployed.
+- Do not consider live scheduled jobs secured until all three checks are confirmed.
 
-- [x] Financial-write RLS lockdown: client `INSERT/UPDATE/DELETE` policies dropped on cash, holdings, transactions, goals, goal_contributions, recurring_investments
-- [x] All financial Edge Functions write via `asServiceRole` + explicit `created_by_id` where needed
-- [x] `executeTrade` converted (was still RLS-scoped after migration — would break trades)
-- [x] Core smoke path verified by owner: Demo top-up → buy → sell
-- [x] Portfolio-aware Invest Assistant (loads Demo cash/holdings/goals into prompt)
-- [x] OpenAI-compatible `LLM_BASE_URL` support (NVIDIA NIM, Groq, etc.)
+### Atomic financial mutations
 
-### Immediate / polish
+Migration: supabase/migrations/20261117163000_secure_integrity.sql.
 
-1. **Finish manual E2E** (owner checklist): Goals CRUD, Auto-Invest CRUD, watchlist, Demo/Real isolation, logout → landing → login. Core cash/trade already OK.
-2. **Invest Assistant latency / model choice** — currently slow with some NVIDIA models; owner evaluating replacements. See §21.
-3. Card spacing / layout after earlier sparkline removal (if still awkward).
-4. Confirm automatic global market-data refresh continues to run.
+Adds service-role-only SECURITY DEFINER RPCs:
+- execute_trade_atomic
+- contribute_to_goal_atomic
+- execute_recurring_plan_atomic
 
-### Market data / fundamentals (later)
+Trade and goal contribution functions lock the relevant cash/goal rows and apply related balance, holding/goal, transaction and notification writes in one database transaction. The Edge Functions for trade, goal contribution and recurring investment call these RPCs.
 
-5. Live fundamentals from a provider that supports market cap / P/E / dividend yield on the current budget — **no fabricated seeds**.
-6. Dividend calendar (separate from user `dividends` table).
-7. Historical BSE per-stock data remains paywalled on current Mansa key — do not rebuild around that.
+The migration also:
+- Deduplicates cash accounts before creating a unique index on (created_by_id, account_type).
+- Enforces per-user client_ref uniqueness on transactions.
+- Adds a unique holding index for (created_by_id, account_type, investment_id).
 
-### Product features (later)
+The RPCs are granted to service_role, not PUBLIC. Real-account trading/contributions remain rejected in the RPCs.
 
-8. Onboarding clarity polish.
-9. Profile / investment-preference fields.
-10. Extra notification types if gaps remain after E2E.
-11. Dashboard analytics depth (allocation, return breakdown) — do not rebuild Dashboard from scratch.
-12. Invest Assistant historical-price answers only after real history exists.
+### Follow-up code review items
 
-### Production / Real account
+- execute_recurring_plan_atomic returns status: 'skip' for an inactive or missing plan, but executeRecurringInvestment/index.ts handles executed, skipped and duplicate; the unexpected skip currently falls into the failure counter. Align the status contract.
+- The migration's provenance UPDATE applies only to market = 'global' rows whose source is NULL or already seeded. It does not relabel BSE seed rows. supabase/seed.sql still labels BSE seed snapshot rows as mansa; verify their intended provenance and correct this if they are historical seed data rather than a live Mansa refresh.
+- Atomicity is implemented in migration source, but this inspection did not connect to the live database to prove the migration has been applied.
+- No live concurrency, idempotency, cross-user or RLS tests were executed as part of this verification.
 
-13. Real-money trading stays **disabled** until atomic financial ops, full server authz (already largely in place for Demo), audit, payments, security review.
+## 4. Market data — current implementation and outstanding work
 
----
+The current service remains in supabase/functions/_shared/marketData/service.ts and requestBudget.ts, with provider adapters for Twelve Data and Mansa.
 
-## 17. Architectural principles
+The checked-in requestBudget.ts is still the earlier Mansa-focused implementation:
+- Mansa has a 70-request/day application safety ceiling.
+- Request logging and recent-success checks are implemented.
+- recentRequest still filters specifically on provider mansa.
 
-`Frontend → Edge Function (auth + validation) → asServiceRole writes → DB`  
-`Provider → MarketDataService → cache → UI`
+**Not present:** Kimi's proposed Twelve Data rolling 60-minute credit budget, per-minute throttling, daily backstop, adaptive batch sizing and corresponding credit-column migration. Do not describe these protections as implemented.
 
-- Prefer one source of truth; no per-page direct provider calls.
-- Preserve investment IDs.
-- No fake financial metrics to fill empty UI.
-- `base44/` name is historical compatibility — not a product name.
+Other notes:
+- Twelve Data global quote/FX and Mansa BSE refresh are routed through the shared service.
+- The earlier Mansa index-history budget gap still requires targeted review.
+- Twelve Data fundamentals/statistics remains constrained by the current provider plan. Do not fabricate market cap, P/E or dividend yield values.
+- Seeded, cached and provider-refreshed prices must be distinguished accurately in the UI. Simulated trading does not mean every reference price is simulated.
 
----
+## 5. Invest Assistant — current state
 
-## 18. Handover instructions
+The current src/pages/InvestAssistant.jsx stores messages in component state and sends only { question: prompt } to the investAssistant Edge Function.
 
-Read first:
-- `README.md`, `ARCHITECTURE.md`, `AGENTS.md`, this `PROJECTS.md`, current `main`
+It is a single-turn backend request flow:
+- Displayed messages are local UI state.
+- Earlier messages are not submitted as conversation history.
+- No assistant_conversations / assistant_messages migration or persistent conversation tables are present.
+- No verified conversation-thread identifier, history cap or cross-user conversation-isolation implementation is present.
+
+The assistant can use previously implemented portfolio context, but **persistent conversation continuity is not implemented**.
+
+## 6. Product feature status
+
+| Area | Verified repository status |
+|---|---|
+| Authentication / onboarding | Implemented; further end-to-end regression coverage needed |
+| Demo simulated investing | Implemented; atomic RPC code merged, live deployment not verified |
+| Real account | View-only foundation; trading disabled |
+| Portfolio / holdings | Implemented; historical analytics range enhancement not present |
+| Goals | CRUD and atomic contribution path implemented |
+| Auto-Invest | Plan management and atomic scheduled execution implemented; status-contract follow-up above |
+| Watchlist | Implemented |
+| Markets | Search, filters, shared provider service and BSE index |
+| Cash | Demo top-ups; withdrawals not implemented |
+| Transactions / notifications | Implemented |
+| Learn | Implemented |
+| Invest Assistant | Portfolio-aware foundation; persistent conversations not implemented |
+| Dividend calendar | Not implemented as a provider-backed calendar feature |
+| Live fundamentals | Provider integration exists; statistics endpoint blocked by plan entitlement |
+
+The existing dividends table stores user dividend records; it is not a provider-backed market dividend calendar.
+
+## 7. Kimi work claims — repository verification
+
+Kimi's progress notes described work under sureinvest-patch/P1-market-data, P1-testing and P2-product. Those patch paths and their described implementation are **not present on the current main tree**.
+
+Not found in the checked-in tree:
+- Twelve Data credit-budget rewrite and migration 20261118080000_market_data_credits.sql
+- marketData.test.ts, pgTAP rls.test.sql and investAssistant.test.ts
+- Playwright E2E specs/configuration
+- Assistant conversation migration 20261118090000_assistant_conversations.sql and handler factory
+- Conversation-threading frontend changes
+- src/lib/analytics.js and PerformanceRanges.jsx
+- Claimed completed portfolio analytics, onboarding and dividend-calendar components
+
+These remain **unmerged / not verified in the repository**. Progress notes alone are not evidence of committed code. If this work exists in another branch, patch folder or external workspace, it must be pushed or supplied before review and integration.
+
+## 8. Tests, CI and deployment verification
+
+The checked-in package.json exposes build, lint, typecheck, dev and preview scripts.
+
+No automated test script, checked-in Playwright configuration/spec, pgTAP suite, Deno test suite or GitHub Actions workflow was found in the current main tree during this review.
+
+This was a static GitHub source/branch inspection. It did not run npm build/lint/typecheck, Deno tests, Playwright, database migrations, live Edge Function calls or a live Netlify/Supabase deployment check. Do not claim those checks passed based on this review.
+
+## 9. Immediate action plan
+
+### P0 — complete deployment and security verification
+1. Confirm the correct production Supabase project and set a strong CRON_SECRET using Supabase secrets.
+2. Confirm each external scheduler sends Authorization: Bearer <CRON_SECRET>.
+3. Deploy dailySnapshot, executeRecurringInvestment, refreshMarketData, executeTrade and contributeToGoal from merged main.
+4. Apply migration 20261117163000_secure_integrity.sql to the intended database.
+5. Test anonymous scheduler calls return 401 (or fail closed with 503 if the secret is missing), admin manual invocation works, and scheduled invocations work with the secret.
+6. Test trade/contribution concurrency, duplicate client references, cross-user isolation and Demo/Real separation against a test database.
+
+### P1 — resolve correctness and market-data gaps
+1. Align recurring-plan RPC status values and handler counters.
+2. Reconcile BSE seed provenance with actual data origin.
+3. Implement and test Twelve Data credit budgeting before increasing refresh frequency.
+4. Revisit Mansa index-history budget enforcement and request-failure retry behaviour.
+5. Add automated tests for RLS, atomic financial RPCs, provider budgets and assistant authorization.
+
+### P2 — product enhancements (not yet in main)
+1. Persistent Invest Assistant conversations with owner-only access and bounded history.
+2. Historical portfolio analytics (1W/1M/3M/1Y) based on actual snapshots.
+3. Onboarding UX improvements.
+4. A provider-backed dividend calendar with honest empty/unavailable states.
+5. End-to-end Playwright coverage for auth, onboarding, Demo/Real separation and core simulated-investment flows.
+
+## 10. Architectural principles and handover rules
+
+Architecture:
+Frontend → authenticated Edge Function → service-role / atomic database operation → Postgres  
+Provider → MarketDataService → request budget + logging → cache → UI
 
 Rules:
-- Product name: **SureInvest** (not InvestBW).
-- Do not use a GitHub PAT from chat.
-- Do not seed fabricated fundamentals.
-- Do not assume Twelve Data `/statistics` works.
-- Small, auditable changes; verify before changing working paths.
-- Deploy Edge Functions after changing them; apply migrations on Supabase.
+- Product name is **SureInvest**, not InvestBW.
+- Keep financial mutations server-side; do not restore client write policies on financial tables casually.
+- Keep RPCs service-role-only and validate ownership inside the database operation.
+- Do not commit provider keys, scheduler secrets or service-role credentials.
+- Do not fabricate financial fundamentals, dividend dates or market prices.
+- Keep provider calls centralized and budget-aware.
+- Applying migrations and deploying Edge Functions are separate from merging source.
+- Make small, auditable changes and update this file only after repository verification.
 
----
+## 11. Reference files
 
-## 19. Prior Claude session notes (18 Sep 2026)
-
-Independently verified build/lint, snapshot cron, Mansa integration complete, notification invalidate for top-up. Identified the RLS write gap (functions used user-scoped client for financial writes). That gap is **closed** in the Grok session (§20).
-
----
-
-## 20. Grok / xAI session — 18 September 2026
-
-### Security: service-role financial writes + RLS lockdown
-
-**Problem:** Edge Functions validated business rules but wrote via the RLS user client. RLS `owner` policies only checked `created_by_id = auth.uid()`, not field values — a user could `update` their own `cash_accounts.balance` via PostgREST and bypass Edge validation.
-
-**Fix:**
-
-1. Migration `supabase/migrations/20260918140000_lock_financial_writes_to_service_role.sql`  
-   Drops client `INSERT/UPDATE/DELETE` policies on:
-   - `cash_accounts`, `holdings`, `transactions`
-   - `goal_contributions`, `recurring_investments`, `goals`  
-   SELECT for owners remains.
-
-2. Functions converted to `asServiceRole` for financial mutations (with ownership checks first):
-   - `demoCashTopUp`, `createGoal`, `deleteGoal`, `contributeToGoal`
-   - `manageRecurringInvestment`, `onboardUser` (cash/tx paths)
-   - `executeRecurringInvestment` (already service-role)
-   - **`executeTrade`** — critical late fix (`4180290`); still used RLS writes after the migration and would break buy/sell until redeployed
-
-3. Explicit `created_by_id: user.id` on creates where required so rows are not orphaned under service role.
-
-**Deploy requirement:** After pull, deploy at least:
-
-```text
-executeTrade, demoCashTopUp, createGoal, deleteGoal,
-contributeToGoal, manageRecurringInvestment, onboardUser, investAssistant
-```
-
-and ensure the lockdown migration is applied (`supabase db push` or equivalent).
-
-**Verified by owner:** Demo cash top-up and core buy/sell path succeeded after deploy.
-
-### Invest Assistant
-
-- **Portfolio-aware:** `investAssistant` loads Demo holdings, cash, and goals (user-scoped reads) and injects a short summary into the system prompt. Still educational-only; no buy/sell advice.
-- **Frontend:** `src/pages/InvestAssistant.jsx` fixed to read `res.answer` (invoke already returns the function body; `res.data.answer` was wrong).
-- **Suggestions** include portfolio-oriented chips.
-
-### LLM provider configuration
-
-Implemented in `supabase/functions/_shared/base44Compat.ts` → `invokeLLM`:
-
-| Secret | Purpose | Example |
-|--------|---------|--------|
-| `LLM_API_KEY` | Provider key | NVIDIA `nvapi-...` |
-| `LLM_BASE_URL` | OpenAI-compatible root (incl. `/v1`) | `https://integrate.api.nvidia.com/v1` |
-| `LLM_PROVIDER` | `openai` (compatible) or `anthropic` | `openai` |
-| `LLM_MODEL` | Model id | see below |
-
-NVIDIA NIM free tier is supported. **Do not commit keys.** Rotate any key that was pasted in chat.
-
-**Model note (owner, end of session):** Some NVIDIA models are slow for the assistant UX. Owner paused while evaluating a faster replacement. Models available on the account include e.g. `z-ai/glm-5.3-flash`, `mistralai/mistral-7b-instruct-v0.3`, `deepseek-ai/deepseek-v4-flash-0731`, `zyphra/zamba2-7b-instruct`. Retired example: `meta/llama-3.1-8b-instruct` → HTTP 410 EOL.
-
-To list models with PowerShell:
-
-```powershell
-$headers = @{ Authorization = "Bearer nvapi-..." }
-(Invoke-RestMethod -Uri "https://integrate.api.nvidia.com/v1/models" -Headers $headers).data.id
-```
-
-Then:
-
-```powershell
-supabase secrets set LLM_MODEL=<chosen-id>
-supabase functions deploy investAssistant
-```
-
-### Relevant commits (this session)
-
-- `4180290` — executeTrade service-role writes
-- `1aa9f2e` — portfolio-aware investAssistant
-- `c75aef7` — answer parsing + suggestions
-- `1a319b8` — `LLM_BASE_URL` OpenAI-compatible providers
-
----
-
-## 21. Current handover point (stop here)
-
-**Status:** Security pass for financial writes is complete and smoke-tested on cash + trade. Invest Assistant is portfolio-aware and provider-flexible; **model selection for latency is still open** (owner preference).
-
-**Next developer should:**
-
-1. Confirm migration + Edge Functions are deployed on the live project.
-2. Optionally finish the E2E checklist (Goals, Auto-Invest, watchlist, Demo/Real).
-3. Pick a faster free LLM model and set `LLM_MODEL` if the assistant remains slow.
-4. Not reopen RLS write policies on financial tables without a strong reason.
-5. Not seed fake fundamentals.
-
-Treat the product as a working Demo platform — targeted gaps only, no blank-slate rebuild.
+- README.md — setup and project overview
+- ARCHITECTURE.md — system architecture (review for drift when changing architecture)
+- AGENTS.md — contributor guidance
+- supabase/config.toml — local Supabase configuration and Edge Function JWT settings
+- .env.example — required local variables and scheduler-secret instructions
+- supabase/migrations/20261117163000_secure_integrity.sql — merged atomic financial operations and integrity constraints
+- supabase/functions/_shared/schedulerAuth.ts — scheduler/admin authentication gate
+- supabase/functions/_shared/marketData/ — shared market-data service and provider adapters
