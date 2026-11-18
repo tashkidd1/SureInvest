@@ -1,6 +1,7 @@
 // Centralized provider request budget + request logging.
 // Mansa free tier ≈ 100 requests/day; SureInvest uses DAILY_MANSA_CEILING.
 // Twelve Data free tier ≈ 8 credits/minute — GLOBAL_MIN_INTERVAL conserves quota.
+// deno-lint-ignore-file no-explicit-any
 export const DAILY_MANSA_CEILING = 70;
 const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 export const GLOBAL_MIN_INTERVAL_MS = 10 * 60 * 1000; // min gap between global quote runs
@@ -13,16 +14,16 @@ function startOfTodayUtc() {
   return d.getTime();
 }
 
-export async function countMansaRequestsToday(base44) {
+export async function countMansaRequestsToday(base44: any) {
   const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
     { provider: 'mansa' }, '-created_date', 200
   );
   const cutoff = startOfTodayUtc();
-  return rows.filter((r) => new Date(r.created_date).getTime() >= cutoff).length;
+  return rows.filter((r: any) => new Date(r.created_date).getTime() >= cutoff).length;
 }
 
 /** Mansa daily budget gate — applies to every Mansa HTTP call category. */
-export async function checkMansaBudget(base44) {
+export async function checkMansaBudget(base44: any) {
   const used = await countMansaRequestsToday(base44);
   return { allowed: used < DAILY_MANSA_CEILING, used, ceiling: DAILY_MANSA_CEILING };
 }
@@ -31,14 +32,18 @@ export async function checkMansaBudget(base44) {
  * Reserve one Mansa slot: budget check + optional freshness gate.
  * Call before *any* Mansa network request (snapshot, index, future endpoints).
  */
-export async function assertMansaRequestAllowed(base44, category, minIntervalMs = 0) {
+export async function assertMansaRequestAllowed(
+  base44: any,
+  category: string,
+  minIntervalMs = 0,
+) {
   if (minIntervalMs > 0) {
     const fresh = await recentRequest(base44, category, minIntervalMs);
     if (fresh) {
       return {
         allowed: false,
-        reason: 'fresh',
-        used: null,
+        reason: 'fresh' as const,
+        used: null as number | null,
         ceiling: DAILY_MANSA_CEILING,
         fresh,
       };
@@ -48,37 +53,44 @@ export async function assertMansaRequestAllowed(base44, category, minIntervalMs 
   if (!budget.allowed) {
     return {
       allowed: false,
-      reason: 'budget',
+      reason: 'budget' as const,
       used: budget.used,
       ceiling: budget.ceiling,
-      fresh: null,
+      fresh: null as { at: string; ageMinutes: number } | null,
     };
   }
   return {
     allowed: true,
-    reason: null,
+    reason: null as 'fresh' | 'budget' | null,
     used: budget.used,
     ceiling: budget.ceiling,
-    fresh: null,
+    fresh: null as { at: string; ageMinutes: number } | null,
   };
 }
 
-export async function recentBseSnapshot(base44) {
+export async function recentBseSnapshot(base44: any) {
   return recentRequest(base44, 'bse_snapshot', SNAPSHOT_MIN_INTERVAL_MS);
 }
 
-export async function recentRequest(base44, category, minIntervalMs) {
+export async function recentRequest(
+  base44: any,
+  category: string,
+  minIntervalMs: number,
+) {
   const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
     { provider: 'mansa', category, status: 'success' }, '-created_date', 1
   );
   const last = rows[0];
   if (!last) return null;
   const age = Date.now() - new Date(last.created_date).getTime();
-  return age < minIntervalMs ? { at: last.created_date, ageMinutes: Math.round(age / 60000) } : null;
+  return age < minIntervalMs ? { at: last.created_date as string, ageMinutes: Math.round(age / 60000) } : null;
 }
 
 /** Twelve Data / global throttle: last successful global_quotes within interval. */
-export async function recentGlobalQuotes(base44, minIntervalMs = GLOBAL_MIN_INTERVAL_MS) {
+export async function recentGlobalQuotes(
+  base44: any,
+  minIntervalMs = GLOBAL_MIN_INTERVAL_MS,
+) {
   const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
     { provider: 'twelve_data', category: 'global_quotes', status: 'success' },
     '-created_date',
@@ -87,10 +99,13 @@ export async function recentGlobalQuotes(base44, minIntervalMs = GLOBAL_MIN_INTE
   const last = rows[0];
   if (!last) return null;
   const age = Date.now() - new Date(last.created_date).getTime();
-  return age < minIntervalMs ? { at: last.created_date, ageMinutes: Math.round(age / 60000) } : null;
+  return age < minIntervalMs ? { at: last.created_date as string, ageMinutes: Math.round(age / 60000) } : null;
 }
 
-export async function recentFxRefresh(base44, minIntervalMs = FX_MIN_INTERVAL_MS) {
+export async function recentFxRefresh(
+  base44: any,
+  minIntervalMs = FX_MIN_INTERVAL_MS,
+) {
   const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
     { provider: 'twelve_data', category: 'fx_usd_bwp', status: 'success' },
     '-created_date',
@@ -99,10 +114,10 @@ export async function recentFxRefresh(base44, minIntervalMs = FX_MIN_INTERVAL_MS
   const last = rows[0];
   if (!last) return null;
   const age = Date.now() - new Date(last.created_date).getTime();
-  return age < minIntervalMs ? { at: last.created_date, ageMinutes: Math.round(age / 60000) } : null;
+  return age < minIntervalMs ? { at: last.created_date as string, ageMinutes: Math.round(age / 60000) } : null;
 }
 
-export async function logProviderRequest(base44, entry) {
+export async function logProviderRequest(base44: any, entry: any) {
   try {
     await base44.asServiceRole.entities.MarketDataRequest.create({
       provider: entry.provider,
