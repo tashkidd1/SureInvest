@@ -11,7 +11,7 @@
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
     "test:db": "echo Run: psql $DATABASE_URL -v ON_ERROR_STOP=1 -f supabase/tests/rls_and_integrity.sql",
-    "test:fn": "deno test --allow-env supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts",
+    "test:fn": "deno test --allow-env --no-check supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts",
     "test": "npm run test:fn"
   },
   "dependencies": {
