@@ -151,3 +151,47 @@ Important limitations:
 - Distinguish seeded, cached and provider-refreshed values clearly.
 - Merging source does not apply migrations or deploy Edge Functions.
 - Do not call the project production-ready until deployment, database and automated regression checks are verified.
+
+
+## 11. Follow-up audit — 20 November 2026
+
+### Repository state
+
+- PR #4 (Phase 1–4 hardening) was merged into `main` on 20 November 2026: https://github.com/tashkidd1/SureInvest/pull/4.
+- Merge commit: `205f5379a3da259458948bfbfb0689f3a6586832`; source tree matches the merged feature branch tree.
+- The Phase 1–4 code and documentation are now on main. Merge does not apply migrations or deploy Edge Functions.
+
+### Verified improvements
+
+- Migration `20261120120000_phase1_financial.sql` adds a transactional `demo_cash_topup_atomic` RPC with row locking, transaction insertion, optional client_ref idempotency and service-role-only execution.
+- `demoCashTopUp` now invokes that RPC rather than performing a client-side read/modify/write.
+- Recurring investment handler recognises `skipped`; portfolio includes 7D/30D/90D/All chart filters; frontend excludes the current question from assistant history.
+- `scripts/run-db-tests.mjs` now executes the SQL test file through psql using DATABASE_URL, SUPABASE_DB_URL or the local default.
+- GitHub Actions workflow exists. The Deno helper-test job passed on the merge commit.
+- Scheduler operations and secret instructions exist in `docs/OPS_SCHEDULER.md`.
+
+### Findings requiring follow-up
+
+1. **HIGH — Twelve Data daily budget is not enforced by refresh service.** `requestBudget.ts` exports `checkTwelveBudget` / `estimateTwelveCreditsToday`, but `service.ts` does not import or call them. The daily ceiling is currently helper-only, not an active guard. Add budget checks/reservations before quote, history and FX requests and test the actual service path.
+2. **HIGH — refresh lock is process-local.** `tryAcquireRefreshLock` uses a module-level boolean. It only serialises calls within one Edge Function isolate; separate isolates/instances can refresh concurrently. Use a database-backed lease/advisory lock or another shared atomic lock with expiry and safe release.
+3. **HIGH — CI is not green.** On merge commit `205f5379...`, `edge-function-tests` passed, but `build-lint` failed at `npm run typecheck`; `npm run build` was skipped. Lint and npm ci passed. Fix TypeScript diagnostics, then rerun the complete workflow. Deno CI currently uses `--no-check`, so it executes tests without Deno type-checking.
+4. **HIGH — holdings dedupe does not preserve cost basis.** The new migration sums duplicate `units` into the oldest row, then deletes the others, but does not recompute weighted `avg_cost` / `avg_cost_bwp` or reconcile other per-row fields. This can materially distort P/L and invested cost. Reconcile weighted cost basis (and validate currency/metadata consistency) before deleting duplicates; inspect a backup/preview on populated DBs.
+5. **MEDIUM — duplicate cash-account risk remains dependent on prior migration history.** The new migration creates the cash-account unique index if absent but does not merge duplicate balances. The earlier migration's cash-account dedupe can delete duplicate accounts without merging balances. Inspect duplicate account rows and linked ledger records before applying migrations to any populated database.
+6. **MEDIUM — daily credit estimate is approximate.** It infers credits from request-log rows and `securities_updated`; failed requests and provider-specific billing behaviour may not map exactly. It also reads a bounded latest-500 row set, which can undercount if the day has more than 500 logged requests. Implement an authoritative usage ledger/reservation and fail safely when usage cannot be determined.
+7. **MEDIUM — in-process lock release is duplicated in catch/finally.** The refresh handler releases in finally and again in outer catch; harmless for a boolean but a future shared lease must use ownership tokens so one invocation cannot release another's lock.
+8. **MEDIUM — assistant history remains client-controlled.** Current-question duplication is fixed, but prior user/assistant messages are still supplied by the browser and interpolated into the system prompt. Validate maximum message count/size/roles server-side, delimit as untrusted context, and add tests for prompt injection and history abuse. No persistent server-side conversations exist.
+9. **MEDIUM — database test scope remains narrow.** `test:db` now invokes psql, but `rls_and_integrity.sql` is still a metadata/integrity smoke test and rolls back. It does not test concurrent top-ups, idempotency collisions, weighted holding merges, actual cross-user RLS behaviour, or RPC authorization. Add isolated behavioural SQL tests against a disposable local database.
+10. **MEDIUM — audit views need explicit access review.** Confirm grants/RLS exposure for `audit_duplicate_cash_accounts` and `audit_duplicate_holdings`; these are operational diagnostics and should not be readable by ordinary anon/authenticated users unless intentionally designed that way.
+11. **LOW — portfolio ranges filter existing snapshots only.** They do not create historical data. The 7D/30D/90D views may be sparse or empty until snapshots accumulate; add empty/insufficient-history states and verify snapshot retention/pagination.
+12. **LOW — deployment documentation is inconsistent.** `docs/OPS_SCHEDULER.md` deploys the relevant functions and sets CRON_SECRET, but README's production-secret section still omits CRON_SECRET/SCHEDULER_SECRET. Keep the canonical instructions aligned.
+
+### Deployment / verification status
+
+- Do not run `supabase db push` against production until migration history and duplicate-account/holding data have been inspected and a backup/reconciliation plan exists.
+- After safe migration application, deploy the changed functions, configure CRON_SECRET in Supabase secrets and ensure scheduled requests send the bearer header.
+- Run `npm ci`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:fn`, and `npm run test:db` against a disposable local Supabase database. The current GitHub Actions result already demonstrates typecheck failure.
+- No live Supabase database inspection, migration application, Edge Function deployment, Netlify check, or local runtime test was performed in this audit.
+
+### Current assessment
+
+The merged work materially improves financial integrity and product functionality, but it is not production-ready. The immediate blockers are: fix typecheck/green CI; enforce Twelve Data budget with a shared lock/reservation; correct holdings cost-basis reconciliation; and safely inspect migration impact on real data before deploying.
