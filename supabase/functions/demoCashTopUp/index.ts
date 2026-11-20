@@ -1,66 +1,54 @@
 import { serveFunction } from '../_shared/cors.ts';
 import { createClientFromRequest } from '../_shared/base44Compat.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const TOP_UP_AMOUNT = 5000;
 
-// Financial writes go through asServiceRole after auth + ownership checks.
-// Clients must not be able to invent balances via PostgREST; RLS write policies
-// on cash/transactions are removed in a companion migration.
+function serviceRpcClient() {
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  return createClient(url, key);
+}
+
+// Atomic demo cash top-up via demo_cash_topup_atomic (row lock + optional client_ref).
 async function handler(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const accounts = await base44.entities.CashAccount.filter({
-      created_by_id: user.id,
-      account_type: 'demo',
-    }, '-created_date', 1);
-    const account = accounts[0];
-    if (!account) return Response.json({ error: 'Demo cash account not found.' }, { status: 404 });
-    if (account.created_by_id && account.created_by_id !== user.id) {
-      return Response.json({ error: 'Forbidden.' }, { status: 403 });
-    }
+    const body = await req.json().catch(() => ({})) || {};
+    const client_ref = (body.client_ref || '').toString().slice(0, 80) || null;
 
-    const current = Number(account.balance) || 0;
-    const newBalance = current + TOP_UP_AMOUNT;
-    const updated = await base44.asServiceRole.entities.CashAccount.update(account.id, {
-      balance: newBalance,
-      available: newBalance,
+    const sb = serviceRpcClient();
+    const { data, error } = await sb.rpc('demo_cash_topup_atomic', {
+      p_user_id: user.id,
+      p_amount: TOP_UP_AMOUNT,
+      p_client_ref: client_ref,
     });
 
-    try {
-      await base44.asServiceRole.entities.Transaction.create({
-        type: 'deposit',
-        amount: TOP_UP_AMOUNT,
-        currency: 'BWP',
-        description: 'Demo top-up',
-        account_type: 'demo',
-        created_by_id: user.id,
-      });
-    } catch (txError) {
-      try {
-        await base44.asServiceRole.entities.CashAccount.update(account.id, {
-          balance: current,
-          available: current,
-        });
-      } catch (_) {}
-      throw txError;
+    if (error) {
+      return Response.json({ error: error.message || 'Could not add demo cash.' }, { status: 400 });
+    }
+    if (data?.error) {
+      const status = Number(data.status) || 400;
+      const { status: _s, ...payload } = data;
+      return Response.json(payload, { status });
     }
 
-    try {
-      await base44.asServiceRole.entities.Notification.create({
-        title: 'Cash topped up',
-        body: 'P5,000 demo cash added to your account.',
-        type: 'success',
-        icon: 'Wallet',
-        created_by_id: user.id,
-      });
-    } catch (_) {}
+    // If balance omitted on duplicate, fetch current for the client UI.
+    if (data?.duplicate && data.balance == null) {
+      const accounts = await base44.entities.CashAccount.filter(
+        { created_by_id: user.id, account_type: 'demo' },
+        '-created_date',
+        1,
+      );
+      data.balance = Number(accounts[0]?.balance) || 0;
+    }
 
-    return Response.json({ ok: true, amount: TOP_UP_AMOUNT, balance: Number(updated?.balance) || newBalance });
+    return Response.json(data);
   } catch (e) {
-    return Response.json({ error: e?.message || 'Could not add demo cash.' }, { status: 400 });
+    return Response.json({ error: (e as Error)?.message || 'Could not add demo cash.' }, { status: 400 });
   }
 }
 

@@ -20,12 +20,15 @@ const FREQUENCIES = [
   { key: "monthly", label: "Monthly" },
 ];
 
-function nextDate(freq) {
-  const d = new Date();
-  if (freq === "weekly") d.setDate(d.getDate() + 7);
-  else if (freq === "bi-weekly") d.setDate(d.getDate() + 14);
-  else d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 10);
+/** Normalize plan status: prefer boolean `active`; treat legacy status strings if present. */
+function isPlanActive(plan) {
+  if (typeof plan?.active === "boolean") return plan.active;
+  if (typeof plan?.status === "string") {
+    const s = plan.status.toLowerCase();
+    if (s === "paused" || s === "inactive" || s === "disabled") return false;
+    if (s === "active" || s === "enabled") return true;
+  }
+  return true;
 }
 
 export default function AutoInvest() {
@@ -73,8 +76,6 @@ export default function AutoInvest() {
     }
 
     try {
-      // Server-side validated plan CRUD — amount, investment, frequency and
-      // account_type are enforced in manageRecurringInvestment.
       if (editingId) {
         const res = await base44.functions.invoke("manageRecurringInvestment", {
           action: "update",
@@ -99,8 +100,8 @@ export default function AutoInvest() {
       }
       resetForm();
       refresh();
-    } catch (e) {
-      toast({ title: editingId ? "Could not update plan" : "Could not create plan", description: e?.message || "Try again.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: editingId ? "Could not update plan" : "Could not create plan", description: err?.message || "Try again.", variant: "destructive" });
     }
   };
 
@@ -112,9 +113,14 @@ export default function AutoInvest() {
       });
       const d = res?.data || res || {};
       if (d.error) throw new Error(d.error);
+      const nowActive = typeof d.active === "boolean" ? d.active : !isPlanActive(plan);
+      toast({
+        title: nowActive ? "Plan resumed" : "Plan paused",
+        description: `${plan.ticker} is now ${nowActive ? "active" : "paused"}.`,
+      });
       refresh();
-    } catch (e) {
-      toast({ title: "Could not update plan", description: e?.message || "Try again.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Could not update plan", description: err?.message || "Try again.", variant: "destructive" });
     }
   };
 
@@ -127,8 +133,8 @@ export default function AutoInvest() {
       const d = res?.data || res || {};
       if (d.error) throw new Error(d.error);
       refresh();
-    } catch (e) {
-      toast({ title: "Could not delete plan", description: e?.message || "Try again.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Could not delete plan", description: err?.message || "Try again.", variant: "destructive" });
     }
   };
 
@@ -137,10 +143,11 @@ export default function AutoInvest() {
     base44.functions.invoke("executeRecurringInvestment", { force: true })
       .then((res) => {
         const d = res?.data || res || {};
+        if (d.error) throw new Error(d.error);
         toast({ title: "Test run complete", description: `Checked ${d.checked ?? 0} of your plans · executed ${d.executed ?? 0} · skipped ${d.skipped ?? 0} · failed ${d.failed ?? 0}` });
         refresh();
       })
-      .catch((e) => toast({ title: "Test run failed", description: e?.message || "Try again.", variant: "destructive" }))
+      .catch((err) => toast({ title: "Test run failed", description: err?.message || "Try again.", variant: "destructive" }))
       .finally(() => setTesting(false));
   };
 
@@ -186,26 +193,29 @@ export default function AutoInvest() {
         <Card className="p-8 text-center text-sm text-muted-foreground">No Auto-Invest plans yet. Create one to schedule recurring simulated investments.</Card>
       ) : (
         <Card className="divide-y divide-border shadow-card border-border/70">
-          {plans.map((p) => (
-            <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary"><Repeat className="h-4 w-4" /></div>
-                <div>
-                  <div className="font-semibold text-sm">{p.ticker} <span className="font-normal text-muted-foreground">· {p.name}</span></div>
-                  <div className="text-xs text-muted-foreground capitalize">{p.frequency} · next {formatDate(p.next_date)}</div>
+          {plans.map((p) => {
+            const active = isPlanActive(p);
+            return (
+              <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary"><Repeat className="h-4 w-4" /></div>
+                  <div>
+                    <div className="font-semibold text-sm">{p.ticker} <span className="font-normal text-muted-foreground">· {p.name}</span></div>
+                    <div className="text-xs text-muted-foreground capitalize">{p.frequency} · next {formatDate(p.next_date)}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold tabular-nums text-sm">{formatCurrency(p.amount)}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+                    {active ? "Active" : "Paused"}
+                  </span>
+                  <button onClick={() => startEdit(p)} className="text-muted-foreground hover:text-primary" aria-label={`Edit ${p.ticker} plan`} title="Edit plan"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => toggle(p)} className="text-muted-foreground hover:text-primary" aria-label="Toggle" title={active ? "Pause plan" : "Resume plan"}><Power className="h-4 w-4" /></button>
+                  <button onClick={() => remove(p.id)} className="text-muted-foreground hover:text-destructive" aria-label="Delete" title="Delete plan"><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-semibold tabular-nums text-sm">{formatCurrency(p.amount)}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", p.active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
-                  {p.active ? "Active" : "Paused"}
-                </span>
-                <button onClick={() => startEdit(p)} className="text-muted-foreground hover:text-primary" aria-label={`Edit ${p.ticker} plan`} title="Edit plan"><Pencil className="h-4 w-4" /></button>
-                <button onClick={() => toggle(p)} className="text-muted-foreground hover:text-primary" aria-label="Toggle" title={p.active ? "Pause plan" : "Resume plan"}><Power className="h-4 w-4" /></button>
-                <button onClick={() => remove(p.id)} className="text-muted-foreground hover:text-destructive" aria-label="Delete" title="Delete plan"><Trash2 className="h-4 w-4" /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
       )}
       <Disclaimer />
