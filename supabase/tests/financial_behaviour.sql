@@ -80,6 +80,27 @@ BEGIN
  END IF;
 END $$;
 
+
+-- Shared market-data lock and atomic daily credit reservations.
+DO $
+DECLARE token_a uuid:=gen_random_uuid(); token_b uuid:=gen_random_uuid(); acquired boolean; released boolean; reservation jsonb;
+BEGIN
+ acquired := public.acquire_market_data_refresh_lock('test-market-refresh',token_a,120);
+ IF acquired IS DISTINCT FROM true THEN RAISE EXCEPTION 'first distributed lock acquisition failed'; END IF;
+ IF public.acquire_market_data_refresh_lock('test-market-refresh',token_b,120) IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'second concurrent lock acquisition should be rejected';
+ END IF;
+ IF public.release_market_data_refresh_lock('test-market-refresh',token_b) IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'non-owner must not release distributed lock';
+ END IF;
+ released := public.release_market_data_refresh_lock('test-market-refresh',token_a);
+ IF released IS DISTINCT FROM true THEN RAISE EXCEPTION 'lock owner could not release lease'; END IF;
+ reservation := public.reserve_twelve_data_credits(199,200);
+ IF reservation->>'allowed' <> 'true' THEN RAISE EXCEPTION 'credit reservation below limit was rejected: %',reservation; END IF;
+ reservation := public.reserve_twelve_data_credits(2,200);
+ IF reservation->>'allowed' <> 'false' THEN RAISE EXCEPTION 'credit reservation over daily limit was accepted: %',reservation; END IF;
+END $;
+
 -- RLS: authenticated user A cannot see user B's private holdings.
 INSERT INTO public.holdings(created_by_id,ticker,name,units,avg_cost,currency,investment_id,account_type)
 SELECT user_a,'SIA','User A test holding',1,10,'BWP',investment_id,'demo' FROM _sureinvest_test_ids
