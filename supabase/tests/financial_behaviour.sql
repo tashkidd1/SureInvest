@@ -85,8 +85,7 @@ END $$;
 -- Weighted-cost consolidation regression: 10 @ 10 + 10 @ 20 = 20 @ 15.
 -- BWP basis: 10 @ 13 + 10 @ 26 = 20 @ 19.5.
 DROP INDEX public.holdings_user_type_investment_uidx;
-DO $
-DECLARE u uuid; inv uuid; merged_units numeric; merged_cost numeric; merged_bwp numeric;
+DO $$DECLARE u uuid; inv uuid; merged_units numeric; merged_cost numeric; merged_bwp numeric;
 BEGIN
  SELECT user_a,investment_id INTO u,inv FROM _sureinvest_test_ids;
  DELETE FROM public.holdings WHERE created_by_id=u AND investment_id=inv AND account_type='demo';
@@ -125,7 +124,7 @@ BEGIN
  IF merged_units<>20 OR merged_cost<>15 OR merged_bwp<>19.5 THEN
    RAISE EXCEPTION 'weighted holding merge incorrect: units %, native %, BWP %',merged_units,merged_cost,merged_bwp;
  END IF;
-END $;
+END $$;
 CREATE UNIQUE INDEX holdings_user_type_investment_uidx
  ON public.holdings(created_by_id,account_type,investment_id) WHERE investment_id IS NOT NULL;
 
