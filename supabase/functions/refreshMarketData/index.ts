@@ -1,6 +1,5 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest } from '../_shared/base44Compat.ts';
-import { secrets } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, getSupabaseSecretKey, secrets } from '../_shared/base44Compat.ts';
 import { runMarketRefresh } from '../_shared/marketData/service.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
