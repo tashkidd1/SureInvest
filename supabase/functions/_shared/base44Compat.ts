@@ -170,13 +170,42 @@ async function invokeLLM({ prompt }: { prompt: string }) {
   return data?.choices?.[0]?.message?.content || '';
 }
 
+// Resolve a named Supabase secret API key from the platform-injected
+// SUPABASE_SECRET_KEYS JSON dictionary. Never log or expose the returned key.
+export function getSupabaseSecretKey(name = 'superkey'): string {
+  const raw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (!raw) {
+    throw new Error('SUPABASE_SECRET_KEYS is not available in this Edge Function environment.');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('SUPABASE_SECRET_KEYS is not valid JSON.');
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('SUPABASE_SECRET_KEYS must be a JSON object of named keys.');
+  }
+
+  const key = (parsed as Record<string, unknown>)[name];
+  if (typeof key !== 'string' || !key.startsWith('sb_secret_')) {
+    throw new Error(`Supabase secret API key "${name}" is missing or invalid.`);
+  }
+
+  return key;
+}
+
 // Mirrors Base44's `createClientFromRequest(req)`: builds a user-scoped
 // client (RLS applies, using the caller's JWT) plus an `asServiceRole`
-// client (RLS bypassed, using the service role key) from the same request.
+// client (RLS bypassed, using the named Supabase secret API key) from the same request.
 export function createClientFromRequest(req: Request) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  // Keep the legacy anon key for the user-scoped client during the separate
+  // publishable-key migration; it has the same low-privilege/RLS role.
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const serviceKey = getSupabaseSecretKey('superkey');
   const authHeader = req.headers.get('Authorization') || '';
 
   const userClient = createClient(supabaseUrl, anonKey, {
