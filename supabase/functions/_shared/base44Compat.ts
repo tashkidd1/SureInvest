@@ -175,6 +175,10 @@ async function invokeLLM({ prompt }: { prompt: string }) {
 export function getSupabaseSecretKey(name = 'superkey'): string {
   const raw = Deno.env.get('SUPABASE_SECRET_KEYS');
   if (!raw) {
+    // Local Supabase CLI environments may expose only the legacy variable.
+    // Hosted projects should provide SUPABASE_SECRET_KEYS automatically.
+    const legacyKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (legacyKey) return legacyKey;
     throw new Error('SUPABASE_SECRET_KEYS is not available in this Edge Function environment.');
   }
 
