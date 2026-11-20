@@ -5,7 +5,7 @@ import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 function serviceRpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
 }
 
 async function handler(req) {
