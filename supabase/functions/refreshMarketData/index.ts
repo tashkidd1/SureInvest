@@ -11,9 +11,14 @@ function serviceRpcClient() {
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
-    let user = null;
-    try { user = await base44.auth.me(); } catch (_e) { user = null; }
-    const gate = requireSchedulerOrAdmin(req, user);
+    // Fast-path the shared scheduler secret before attempting user-JWT
+    // validation. A CRON_SECRET is not a Supabase user access token.
+    let gate = requireSchedulerOrAdmin(req, null);
+    if (!gate.ok) {
+      let user = null;
+      try { user = await base44.auth.me(); } catch (_e) { user = null; }
+      gate = requireSchedulerOrAdmin(req, user);
+    }
     if (!gate.ok) return gate.response;
 
     const ownerToken = crypto.randomUUID();
