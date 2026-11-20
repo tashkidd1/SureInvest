@@ -14,15 +14,29 @@ WITH ranked AS (
          ) AS rn,
          SUM(units) OVER (
            PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
-         ) AS total_units
+         ) AS total_units,
+         SUM(units * avg_cost) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ) / NULLIF(SUM(units) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ), 0) AS weighted_avg_cost,
+         SUM(units * avg_cost_bwp) FILTER (WHERE avg_cost_bwp IS NOT NULL) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ) / NULLIF(SUM(units) FILTER (WHERE avg_cost_bwp IS NOT NULL) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ), 0) AS weighted_avg_cost_bwp
   FROM public.holdings
   WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
 ),
 keeper AS (
-  SELECT id, total_units FROM ranked WHERE rn = 1
+  SELECT id, total_units, weighted_avg_cost, weighted_avg_cost_bwp
+  FROM ranked WHERE rn = 1
 )
 UPDATE public.holdings h
-SET units = k.total_units, updated_date = now()
+SET units = k.total_units,
+    avg_cost = COALESCE(k.weighted_avg_cost, h.avg_cost),
+    avg_cost_bwp = k.weighted_avg_cost_bwp,
+    updated_date = now()
 FROM keeper k
 WHERE h.id = k.id;
 
