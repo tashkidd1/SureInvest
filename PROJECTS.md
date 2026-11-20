@@ -212,6 +212,7 @@ Implementation branch: `fix/phase5-reliability` (pending CI and review).
 2. **TypeScript / JS project diagnostics**
    - Retrieved the failed CI job logs. The errors were predominantly TypeScript's `checkJs` inference against untyped JavaScript React components and dynamically-proxied entity APIs, plus missing Vite `ImportMeta.env` types and an untyped `Error.status` extension.
    - Added `vite/client` types and a JSDoc annotation for the auth error.
+   - Updated the local Supabase mail-testing section from deprecated `[inbucket]` to `[local_smtp]` so the current Supabase CLI can start the local stack.
    - Disabled `checkJs` in the JS project config and adjusted the `typecheck` command to parse the configured JS project without applying TypeScript semantic checking to untyped JSX. ESLint and the Vite production build remain the actual JS diagnostics.
    - This is a compatibility correction, not a completed JSDoc-based type-safety migration. A future typed migration should add explicit prop/entity types and re-enable `checkJs` incrementally.
 
