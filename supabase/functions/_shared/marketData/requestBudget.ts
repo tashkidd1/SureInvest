@@ -17,19 +17,6 @@ export const GLOBAL_MIN_INTERVAL_MS = 10 * 60 * 1000;
 export const FX_MIN_INTERVAL_MS = 30 * 60 * 1000;
 const PRUNE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** In-process refresh lock (single isolate). Reduces concurrent budget burn. */
-let refreshInFlight = false;
-
-export function tryAcquireRefreshLock(): boolean {
-  if (refreshInFlight) return false;
-  refreshInFlight = true;
-  return true;
-}
-
-export function releaseRefreshLock(): void {
-  refreshInFlight = false;
-}
-
 function startOfTodayUtc() {
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
@@ -47,34 +34,6 @@ export async function countMansaRequestsToday(base44: any) {
 export async function checkMansaBudget(base44: any) {
   const used = await countMansaRequestsToday(base44);
   return { allowed: used < DAILY_MANSA_CEILING, used, ceiling: DAILY_MANSA_CEILING };
-}
-
-/** Estimate Twelve Data credits used today from log rows. */
-export async function estimateTwelveCreditsToday(base44: any) {
-  const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
-    { provider: 'twelve_data' }, '-created_date', 500
-  );
-  const cutoff = startOfTodayUtc();
-  let credits = 0;
-  for (const r of rows) {
-    if (new Date(r.created_date).getTime() < cutoff) continue;
-    const n = Number(r.securities_updated) || 0;
-    if (r.category === 'global_quotes') credits += Math.max(n, 1) * TWELVE_CREDIT_PER_QUOTE_SYMBOL;
-    else if (r.category === 'global_history') credits += TWELVE_CREDIT_PER_HISTORY;
-    else if (r.category === 'fx_usd_bwp') credits += TWELVE_CREDIT_PER_FX;
-    else credits += 1;
-  }
-  return credits;
-}
-
-export async function checkTwelveBudget(base44: any, reserve = 1) {
-  const used = await estimateTwelveCreditsToday(base44);
-  return {
-    allowed: used + reserve <= DAILY_TWELVE_CREDIT_CEILING,
-    used,
-    ceiling: DAILY_TWELVE_CREDIT_CEILING,
-    remaining: Math.max(0, DAILY_TWELVE_CREDIT_CEILING - used),
-  };
 }
 
 export async function assertMansaRequestAllowed(

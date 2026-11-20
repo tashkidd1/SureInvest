@@ -2,6 +2,7 @@
 // Coordinates Twelve Data (global) and Mansa (BSE), applies centralized
 // request budgets, writes Investment / ExchangeRate caches, and returns a
 // unified result. Provider failures are isolated; cached prices are retained.
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
 import {
@@ -11,7 +12,21 @@ import {
   logProviderRequest,
   GLOBAL_MIN_INTERVAL_MS,
   FX_MIN_INTERVAL_MS,
+  DAILY_TWELVE_CREDIT_CEILING,
 } from './requestBudget.ts';
+
+function rpcClient() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+}
+
+async function reserveTwelveCredits(credits) {
+  const { data, error } = await rpcClient().rpc('reserve_twelve_data_credits', {
+    p_credits: credits,
+    p_daily_limit: DAILY_TWELVE_CREDIT_CEILING,
+  });
+  if (error) throw new Error('Unable to reserve Twelve Data credits: ' + error.message);
+  return data?.allowed === true;
+}
 
 const GLOBAL_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'KO', 'AMZN', 'SPY', 'VXUS', 'VNQ', 'VIG', 'BTC/USD'];
 const GLOBAL_PER_CALL = 6;
@@ -52,6 +67,10 @@ async function refreshGlobal(base44, apiKey, now) {
     return { status: 'no_change', attempted: [], updated: 0, failed: 0, message: 'No global symbols found to refresh.' };
   }
   const symbols = targets.map((t) => t.ticker);
+  if (!(await reserveTwelveCredits(symbols.length))) {
+    return { status: 'deferred', attempted: [], updated: 0, failed: 0, stale_cache: true,
+      message: `Global: Twelve Data daily credit budget reached (${DAILY_TWELVE_CREDIT_CEILING}) — cached prices retained.` };
+  }
   const result = await fetchQuotes(apiKey, symbols);
   await logProviderRequest(base44, {
     provider: 'twelve_data', category: 'global_quotes',
@@ -80,6 +99,8 @@ async function refreshGlobal(base44, apiKey, now) {
     try {
       let backfillPrices = null;
       if ((!inv.historical_prices || inv.historical_prices.length < 5) && backfillsLeft > 0) {
+        const reserved = await reserveTwelveCredits(1);
+        if (reserved) {
         const series = await fetchTimeSeries(apiKey, inv.ticker, 30);
         backfillsLeft -= 1;
         await logProviderRequest(base44, {
@@ -90,6 +111,7 @@ async function refreshGlobal(base44, apiKey, now) {
           securities_updated: series.ok ? 1 : 0,
         });
         if (series.ok && series.prices.length) backfillPrices = series.prices;
+        }
       }
       await base44.asServiceRole.entities.Investment.update(inv.id, {
         price: q.price,
@@ -227,6 +249,7 @@ async function refreshFx(base44, apiKey, now) {
   if (fresh) return null; // keep cached rate
 
   try {
+    if (!(await reserveTwelveCredits(1))) return null;
     const result = await fetchUsdBwpRate(apiKey);
     await logProviderRequest(base44, {
       provider: 'twelve_data',

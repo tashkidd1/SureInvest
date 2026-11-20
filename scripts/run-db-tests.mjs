@@ -7,9 +7,13 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const sqlFile = resolve('supabase/tests/rls_and_integrity.sql');
-if (!existsSync(sqlFile)) {
-  console.error('Missing', sqlFile);
+const sqlFiles = [
+  resolve('supabase/tests/rls_and_integrity.sql'),
+  resolve('supabase/tests/financial_behaviour.sql'),
+];
+const missing = sqlFiles.filter((file) => !existsSync(file));
+if (missing.length) {
+  console.error('Missing SQL test file(s):', missing.join(', '));
   process.exit(1);
 }
 
@@ -18,7 +22,8 @@ const url =
   process.env.SUPABASE_DB_URL ||
   'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
-const result = spawnSync('psql', [url, '-v', 'ON_ERROR_STOP=1', '-f', sqlFile], {
+const args = [url, '-v', 'ON_ERROR_STOP=1', ...sqlFiles.flatMap((file) => ['-f', file])];
+const result = spawnSync('psql', args, {
   stdio: 'inherit',
   shell: process.platform === 'win32',
 });

@@ -88,6 +88,7 @@ const entities = new Proxy(
 async function me() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) {
+    /** @type {Error & { status?: number }} */
     const err = new Error('Not authenticated');
     err.status = 401;
     throw err;
