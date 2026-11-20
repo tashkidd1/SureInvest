@@ -81,6 +81,54 @@ BEGIN
 END $$;
 
 
+
+-- Weighted-cost consolidation regression: 10 @ 10 + 10 @ 20 = 20 @ 15.
+-- BWP basis: 10 @ 13 + 10 @ 26 = 20 @ 19.5.
+DROP INDEX public.holdings_user_type_investment_uidx;
+DO $
+DECLARE u uuid; inv uuid; merged_units numeric; merged_cost numeric; merged_bwp numeric;
+BEGIN
+ SELECT user_a,investment_id INTO u,inv FROM _sureinvest_test_ids;
+ DELETE FROM public.holdings WHERE created_by_id=u AND investment_id=inv AND account_type='demo';
+ INSERT INTO public.holdings(created_by_id,ticker,name,units,avg_cost,avg_cost_bwp,current_price,currency,investment_id,account_type)
+ VALUES
+ (u,'SITEST','SureInvest SQL Test',10,10,13,10,'BWP',inv,'demo'),
+ (u,'SITEST','SureInvest SQL Test',10,20,26,20,'BWP',inv,'demo');
+
+ WITH ranked AS (
+   SELECT id,
+     ROW_NUMBER() OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id ORDER BY created_date ASC NULLS LAST,id ASC) rn,
+     SUM(units) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id) total_units,
+     SUM(units*avg_cost) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id)
+       / NULLIF(SUM(units) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id),0) weighted_avg_cost,
+     CASE WHEN COUNT(*) FILTER (WHERE avg_cost_bwp IS NULL) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id)=0
+       THEN SUM(units*avg_cost_bwp) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id)
+       / NULLIF(SUM(units) OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id),0)
+       ELSE NULL END weighted_avg_cost_bwp
+   FROM public.holdings WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
+ ), keepers AS (
+   SELECT id,total_units,weighted_avg_cost,weighted_avg_cost_bwp FROM ranked WHERE rn=1
+ )
+ UPDATE public.holdings h SET units=k.total_units,avg_cost=k.weighted_avg_cost,
+   avg_cost_bwp=k.weighted_avg_cost_bwp,updated_date=now()
+ FROM keepers k WHERE h.id=k.id;
+
+ WITH ranked AS (
+   SELECT id,ROW_NUMBER() OVER (PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id
+     ORDER BY created_date ASC NULLS LAST,id ASC) rn
+   FROM public.holdings WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
+ )
+ DELETE FROM public.holdings h USING ranked r WHERE h.id=r.id AND r.rn>1;
+
+ SELECT units,avg_cost,avg_cost_bwp INTO merged_units,merged_cost,merged_bwp
+ FROM public.holdings WHERE created_by_id=u AND investment_id=inv AND account_type='demo';
+ IF merged_units<>20 OR merged_cost<>15 OR merged_bwp<>19.5 THEN
+   RAISE EXCEPTION 'weighted holding merge incorrect: units %, native %, BWP %',merged_units,merged_cost,merged_bwp;
+ END IF;
+END $;
+CREATE UNIQUE INDEX holdings_user_type_investment_uidx
+ ON public.holdings(created_by_id,account_type,investment_id) WHERE investment_id IS NOT NULL;
+
 -- Shared market-data lock and atomic daily credit reservations.
 DO $$DECLARE token_a uuid:=gen_random_uuid(); token_b uuid:=gen_random_uuid(); acquired boolean; released boolean; reservation jsonb;
 BEGIN
