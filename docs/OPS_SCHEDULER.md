@@ -36,6 +36,8 @@ Content-Type: application/json
 
 Anonymous calls return **401**. Missing secret configuration returns **503**. The new secret API key is not a JWT and must never be used as the scheduler's `Authorization` bearer token.
 
+Use `timeout_milliseconds := 30000` in the `net.http_post` call. The extension default is 5,000 ms; the live requests were hitting that timeout. Scheduler handlers check the custom CRON_SECRET before attempting user-JWT validation, avoiding an unnecessary Auth round-trip for scheduled calls.
+
 Admins may invoke with their user JWT (`Authorization: Bearer <user-jwt>`) for manual runs. Auto-Invest `{ "force": true }` is admin-only.
 
 ## Deploy checklist
