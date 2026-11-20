@@ -34,8 +34,9 @@ export default function InvestAssistant() {
     setInput("");
     setLoading(true);
     try {
-      // Send prior turns (excluding the welcome bubble) so the model keeps context.
-      const history = next
+      // Prior turns only — exclude welcome bubble AND the current user question
+      // (sent separately as `question`) to avoid history duplication.
+      const history = messages
         .filter((m, i) => i > 0 && (m.role === "user" || m.role === "assistant"))
         .slice(-MAX_HISTORY_TURNS * 2)
         .map((m) => ({ role: m.role, content: m.content }));

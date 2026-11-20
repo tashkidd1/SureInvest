@@ -1,10 +1,32 @@
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, PiggyBank, Percent } from "lucide-react";
 import StatCard from "@/components/common/StatCard";
 import PortfolioChart from "@/components/charts/PortfolioChart";
 import { formatCurrency } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const RANGES = [
+  { key: "7d", label: "7D", days: 7 },
+  { key: "30d", label: "30D", days: 30 },
+  { key: "90d", label: "90D", days: 90 },
+  { key: "all", label: "All", days: null },
+];
+
+function filterHistory(history, days) {
+  if (!Array.isArray(history) || !history.length) return [];
+  if (!days) return history;
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutStr = cutoff.toISOString().slice(0, 10);
+  return history.filter((h) => (h.date || "") >= cutStr);
+}
 
 export default function PortfolioSummary({ totalValue, invested, cash, pl, plPercent, history = [], isDemo = false }) {
+  const [range, setRange] = useState("30d");
+  const rangeDef = RANGES.find((r) => r.key === range) || RANGES[1];
+  const chartData = useMemo(() => filterHistory(history, rangeDef.days), [history, rangeDef.days]);
+
   return (
     <div className="space-y-5">
       <Card className="overflow-hidden border-border/70 shadow-card">
@@ -27,10 +49,29 @@ export default function PortfolioSummary({ totalValue, invested, cash, pl, plPer
         </div>
         {history.length > 0 ? (
           <div className="border-t border-border/70 px-3 pb-4 pt-3 sm:px-5 sm:pb-5">
-            <div className="mb-2 flex items-center justify-between px-2">
-              <p className="text-xs font-medium text-muted-foreground">Portfolio history · last 30 days</p>
+            <div className="mb-2 flex items-center justify-between gap-2 px-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Portfolio history · {rangeDef.label === "All" ? "all time" : `last ${rangeDef.label}`}
+              </p>
+              <div className="flex gap-1">
+                {RANGES.map((r) => (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => setRange(r.key)}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                      range === r.key
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <PortfolioChart data={history} />
+            <PortfolioChart data={chartData} />
           </div>
         ) : (
           <div className="border-t border-dashed border-border/70 px-5 py-8 text-sm text-muted-foreground">

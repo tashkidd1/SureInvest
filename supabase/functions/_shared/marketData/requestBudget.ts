@@ -1,12 +1,34 @@
 // Centralized provider request budget + request logging.
 // Mansa free tier ≈ 100 requests/day; SureInvest uses DAILY_MANSA_CEILING.
-// Twelve Data free tier ≈ 8 credits/minute — GLOBAL_MIN_INTERVAL conserves quota.
+// Twelve Data free tier ≈ 8 credits/minute — GLOBAL_MIN_INTERVAL + credit estimates.
 // deno-lint-ignore-file no-explicit-any
 export const DAILY_MANSA_CEILING = 70;
+/** Soft daily credit budget for Twelve Data (quotes + history + FX). */
+export const DAILY_TWELVE_CREDIT_CEILING = 200;
+/** Credits charged per global quote symbol in a batch. */
+export const TWELVE_CREDIT_PER_QUOTE_SYMBOL = 1;
+/** Credits charged per time_series backfill. */
+export const TWELVE_CREDIT_PER_HISTORY = 1;
+/** Credits charged per FX quote. */
+export const TWELVE_CREDIT_PER_FX = 1;
+
 const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
-export const GLOBAL_MIN_INTERVAL_MS = 10 * 60 * 1000; // min gap between global quote runs
+export const GLOBAL_MIN_INTERVAL_MS = 10 * 60 * 1000;
 export const FX_MIN_INTERVAL_MS = 30 * 60 * 1000;
 const PRUNE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** In-process refresh lock (single isolate). Reduces concurrent budget burn. */
+let refreshInFlight = false;
+
+export function tryAcquireRefreshLock(): boolean {
+  if (refreshInFlight) return false;
+  refreshInFlight = true;
+  return true;
+}
+
+export function releaseRefreshLock(): void {
+  refreshInFlight = false;
+}
 
 function startOfTodayUtc() {
   const d = new Date();
@@ -22,16 +44,39 @@ export async function countMansaRequestsToday(base44: any) {
   return rows.filter((r: any) => new Date(r.created_date).getTime() >= cutoff).length;
 }
 
-/** Mansa daily budget gate — applies to every Mansa HTTP call category. */
 export async function checkMansaBudget(base44: any) {
   const used = await countMansaRequestsToday(base44);
   return { allowed: used < DAILY_MANSA_CEILING, used, ceiling: DAILY_MANSA_CEILING };
 }
 
-/**
- * Reserve one Mansa slot: budget check + optional freshness gate.
- * Call before *any* Mansa network request (snapshot, index, future endpoints).
- */
+/** Estimate Twelve Data credits used today from log rows. */
+export async function estimateTwelveCreditsToday(base44: any) {
+  const rows = await base44.asServiceRole.entities.MarketDataRequest.filter(
+    { provider: 'twelve_data' }, '-created_date', 500
+  );
+  const cutoff = startOfTodayUtc();
+  let credits = 0;
+  for (const r of rows) {
+    if (new Date(r.created_date).getTime() < cutoff) continue;
+    const n = Number(r.securities_updated) || 0;
+    if (r.category === 'global_quotes') credits += Math.max(n, 1) * TWELVE_CREDIT_PER_QUOTE_SYMBOL;
+    else if (r.category === 'global_history') credits += TWELVE_CREDIT_PER_HISTORY;
+    else if (r.category === 'fx_usd_bwp') credits += TWELVE_CREDIT_PER_FX;
+    else credits += 1;
+  }
+  return credits;
+}
+
+export async function checkTwelveBudget(base44: any, reserve = 1) {
+  const used = await estimateTwelveCreditsToday(base44);
+  return {
+    allowed: used + reserve <= DAILY_TWELVE_CREDIT_CEILING,
+    used,
+    ceiling: DAILY_TWELVE_CREDIT_CEILING,
+    remaining: Math.max(0, DAILY_TWELVE_CREDIT_CEILING - used),
+  };
+}
+
 export async function assertMansaRequestAllowed(
   base44: any,
   category: string,
@@ -86,7 +131,6 @@ export async function recentRequest(
   return age < minIntervalMs ? { at: last.created_date as string, ageMinutes: Math.round(age / 60000) } : null;
 }
 
-/** Twelve Data / global throttle: last successful global_quotes within interval. */
 export async function recentGlobalQuotes(
   base44: any,
   minIntervalMs = GLOBAL_MIN_INTERVAL_MS,
@@ -115,6 +159,27 @@ export async function recentFxRefresh(
   if (!last) return null;
   const age = Date.now() - new Date(last.created_date).getTime();
   return age < minIntervalMs ? { at: last.created_date as string, ageMinutes: Math.round(age / 60000) } : null;
+}
+
+/** Simple exponential backoff helper for provider errors. */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: { retries?: number; baseMs?: number; isRetryable?: (err: unknown) => boolean } = {},
+): Promise<T> {
+  const retries = opts.retries ?? 2;
+  const baseMs = opts.baseMs ?? 400;
+  const isRetryable = opts.isRetryable ?? (() => true);
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt === retries || !isRetryable(e)) throw e;
+      await new Promise((r) => setTimeout(r, baseMs * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr;
 }
 
 export async function logProviderRequest(base44: any, entry: any) {
