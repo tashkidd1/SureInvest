@@ -47,6 +47,57 @@ CREATE INDEX IF NOT EXISTS transactions_client_ref_idx
   ON public.transactions (client_ref)
   WHERE client_ref IS NOT NULL;
 
+-- Consolidate duplicate holdings before creating the unique index.
+-- Preserve total units and weighted native-currency cost basis. BWP basis is
+-- retained only when every source row has one; otherwise NULL avoids a false P/L.
+WITH ranked AS (
+  SELECT id,
+         ROW_NUMBER() OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+           ORDER BY created_date ASC NULLS LAST, id ASC
+         ) AS rn,
+         SUM(units) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ) AS total_units,
+         SUM(units * avg_cost) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ) / NULLIF(SUM(units) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ), 0) AS weighted_avg_cost,
+         CASE WHEN COUNT(*) FILTER (WHERE avg_cost_bwp IS NULL) OVER (
+           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+         ) = 0 THEN
+           SUM(units * avg_cost_bwp) OVER (
+             PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+           ) / NULLIF(SUM(units) OVER (
+             PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+           ), 0)
+         ELSE NULL END AS weighted_avg_cost_bwp
+  FROM public.holdings
+  WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
+),
+keepers AS (
+  SELECT id,total_units,weighted_avg_cost,weighted_avg_cost_bwp
+  FROM ranked WHERE rn=1
+)
+UPDATE public.holdings h
+SET units=k.total_units,
+    avg_cost=COALESCE(k.weighted_avg_cost,h.avg_cost),
+    avg_cost_bwp=k.weighted_avg_cost_bwp,
+    updated_date=now()
+FROM keepers k WHERE h.id=k.id;
+
+WITH ranked AS (
+  SELECT id,ROW_NUMBER() OVER (
+    PARTITION BY created_by_id,COALESCE(account_type,'demo'),investment_id
+    ORDER BY created_date ASC NULLS LAST,id ASC
+  ) AS rn
+  FROM public.holdings
+  WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
+)
+DELETE FROM public.holdings h USING ranked r
+WHERE h.id=r.id AND r.rn>1;
+
 -- Optional: one holding row per user/account/investment (helps consolidations).
 CREATE UNIQUE INDEX IF NOT EXISTS holdings_user_type_investment_uidx
   ON public.holdings (created_by_id, account_type, investment_id)
