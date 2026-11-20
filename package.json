@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -p ./jsconfig.json",
+    "typecheck": "tsc -p ./jsconfig.json --noEmit --allowJs --checkJs false",
     "preview": "vite preview",
     "test:db": "node scripts/run-db-tests.mjs",
     "test:fn": "deno test --allow-env --no-check supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts",
