@@ -23,7 +23,7 @@ Scheduled calls use two separate credentials:
 - `Authorization: Bearer <CRON_SECRET>` authenticates the scheduler to the function's `requireSchedulerOrAdmin` gate.
 - `apikey: <secret API key>` identifies the server-side Supabase API key to the API gateway. Store this value in Vault and read it at call time; never hard-code it in a cron command.
 
-The production secret API key for this project is named `superkey`. Edge Functions read it from the platform-injected `SUPABASE_SECRET_KEYS` JSON dictionary using `getSupabaseSecretKey('superkey')`. The legacy anon key remains in use for the user-scoped client until the publishable-key migration is separately verified.
+The production secret API key for this project is named `superkey`. Edge Functions read it from the platform-injected `SUPABASE_SECRET_KEYS` JSON dictionary using `getSupabaseSecretKey('superkey')`. The helper retains a fallback to `SUPABASE_SERVICE_ROLE_KEY` only when the new dictionary is absent, to support local Supabase CLI environments and staged rollout; if the dictionary exists but does not contain a valid `superkey`, it fails closed. The legacy anon key remains in use for the user-scoped client until the publishable-key migration is separately verified.
 
 ```http
 POST /functions/v1/<name>
