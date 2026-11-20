@@ -33,6 +33,12 @@ Admins may invoke with their user JWT (`Authorization: Bearer <user-jwt>`) for m
 
 ## Deploy checklist
 
+Before deploying, inspect the database migration history and take a backup. The Phase 1 holdings consolidation preserves weighted-average cost basis on fresh application. If `20261117163000_secure_integrity.sql` or `20261120120000_phase1_financial.sql` has already been applied, editing the historical migration does not rerun it; do not assume previously deleted duplicate rows or their cost basis can be reconstructed.
+
+Phase 5 adds a database-backed market refresh lease and an atomic UTC-day Twelve Data credit reservation ledger. The default daily reservation ceiling is 200 credits; failed provider attempts remain reserved conservatively.
+
+For local verification, run `supabase start`, `supabase db reset`, then `npm run test:db`. The SQL suite creates temporary auth users and rolls back its fixtures; use a disposable local database only.
+
 ```bash
 supabase db push
 supabase functions deploy demoCashTopUp executeTrade contributeToGoal \
