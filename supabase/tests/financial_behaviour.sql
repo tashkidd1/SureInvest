@@ -82,8 +82,7 @@ END $$;
 
 
 -- Shared market-data lock and atomic daily credit reservations.
-DO $
-DECLARE token_a uuid:=gen_random_uuid(); token_b uuid:=gen_random_uuid(); acquired boolean; released boolean; reservation jsonb;
+DO $$DECLARE token_a uuid:=gen_random_uuid(); token_b uuid:=gen_random_uuid(); acquired boolean; released boolean; reservation jsonb;
 BEGIN
  acquired := public.acquire_market_data_refresh_lock('test-market-refresh',token_a,120);
  IF acquired IS DISTINCT FROM true THEN RAISE EXCEPTION 'first distributed lock acquisition failed'; END IF;
@@ -99,7 +98,7 @@ BEGIN
  IF reservation->>'allowed' <> 'true' THEN RAISE EXCEPTION 'credit reservation below limit was rejected: %',reservation; END IF;
  reservation := public.reserve_twelve_data_credits(2,200);
  IF reservation->>'allowed' <> 'false' THEN RAISE EXCEPTION 'credit reservation over daily limit was accepted: %',reservation; END IF;
-END $;
+END $$;
 
 -- RLS: authenticated user A cannot see user B's private holdings.
 INSERT INTO public.holdings(created_by_id,ticker,name,units,avg_cost,currency,investment_id,account_type)
