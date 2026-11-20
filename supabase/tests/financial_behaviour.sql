@@ -86,8 +86,8 @@ SELECT user_a,'SIA','User A test holding',1,10,'BWP',investment_id,'demo' FROM _
 UNION ALL
 SELECT user_b,'SIB','User B test holding',1,10,'BWP',investment_id,'demo' FROM _sureinvest_test_ids;
 
-SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub',(SELECT user_a::text FROM _sureinvest_test_ids),true);
+SET LOCAL ROLE authenticated;
 DO $$
 DECLARE visible_count integer; leaked_count integer;
 BEGIN
