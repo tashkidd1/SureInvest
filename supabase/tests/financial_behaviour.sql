@@ -44,20 +44,20 @@ END $$;
 
 -- Trade: verifies cash/holding/ledger mutation and idempotent replay.
 DO $$
-DECLARE u uuid; inv uuid; before_balance numeric; first_result jsonb; second_result jsonb; after_balance numeric; units numeric; tx_count integer;
+DECLARE u uuid; inv uuid; before_balance numeric; first_result jsonb; second_result jsonb; after_balance numeric; holding_units numeric; tx_count integer;
 BEGIN
  SELECT user_a,investment_id INTO u,inv FROM _sureinvest_test_ids;
  SELECT balance INTO before_balance FROM public.cash_accounts WHERE created_by_id=u AND account_type='demo';
  first_result := public.execute_trade_atomic(u,'buy',inv,2,'demo','test-trade-idempotency');
  second_result := public.execute_trade_atomic(u,'buy',inv,2,'demo','test-trade-idempotency');
  SELECT balance INTO after_balance FROM public.cash_accounts WHERE created_by_id=u AND account_type='demo';
- SELECT sum(units) INTO units FROM public.holdings WHERE created_by_id=u AND investment_id=inv AND account_type='demo';
+ SELECT sum(h.units) INTO holding_units FROM public.holdings h WHERE created_by_id=u AND investment_id=inv AND account_type='demo';
  SELECT count(*) INTO tx_count FROM public.transactions WHERE created_by_id=u AND client_ref='test-trade-idempotency';
  IF first_result->>'ok' <> 'true' OR second_result->>'duplicate' <> 'true' THEN
    RAISE EXCEPTION 'trade RPC/idempotency failed: %, %',first_result,second_result;
  END IF;
- IF after_balance <> before_balance - 20 OR units <> 2 OR tx_count <> 1 THEN
-   RAISE EXCEPTION 'trade side effects incorrect: balance %, units %, ledger %',after_balance,units,tx_count;
+ IF after_balance <> before_balance - 20 OR holding_units <> 2 OR tx_count <> 1 THEN
+   RAISE EXCEPTION 'trade side effects incorrect: balance %, units %, ledger %',after_balance,holding_units,tx_count;
  END IF;
 END $$;
 
