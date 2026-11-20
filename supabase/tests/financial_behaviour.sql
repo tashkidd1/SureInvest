@@ -103,9 +103,9 @@ END $;
 
 -- RLS: authenticated user A cannot see user B's private holdings.
 INSERT INTO public.holdings(created_by_id,ticker,name,units,avg_cost,currency,investment_id,account_type)
-SELECT user_a,'SIA','User A test holding',1,10,'BWP',investment_id,'demo' FROM _sureinvest_test_ids
+SELECT user_a,'SIA','User A test holding',1,10,'BWP',NULL,'demo' FROM _sureinvest_test_ids
 UNION ALL
-SELECT user_b,'SIB','User B test holding',1,10,'BWP',investment_id,'demo' FROM _sureinvest_test_ids;
+SELECT user_b,'SIB','User B test holding',1,10,'BWP',NULL,'demo' FROM _sureinvest_test_ids;
 
 SELECT set_config('request.jwt.claim.sub',(SELECT user_a::text FROM _sureinvest_test_ids),true);
 SET LOCAL ROLE authenticated;
