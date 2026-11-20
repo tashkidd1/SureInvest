@@ -20,11 +20,15 @@ WITH ranked AS (
          ) / NULLIF(SUM(units) OVER (
            PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
          ), 0) AS weighted_avg_cost,
-         SUM(units * avg_cost_bwp) FILTER (WHERE avg_cost_bwp IS NOT NULL) OVER (
+         CASE WHEN COUNT(*) FILTER (WHERE avg_cost_bwp IS NULL) OVER (
            PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
-         ) / NULLIF(SUM(units) FILTER (WHERE avg_cost_bwp IS NOT NULL) OVER (
-           PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
-         ), 0) AS weighted_avg_cost_bwp
+         ) = 0 THEN
+           SUM(units * avg_cost_bwp) OVER (
+             PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+           ) / NULLIF(SUM(units) OVER (
+             PARTITION BY created_by_id, COALESCE(account_type, 'demo'), investment_id
+           ), 0)
+         ELSE NULL END AS weighted_avg_cost_bwp
   FROM public.holdings
   WHERE investment_id IS NOT NULL AND created_by_id IS NOT NULL
 ),
