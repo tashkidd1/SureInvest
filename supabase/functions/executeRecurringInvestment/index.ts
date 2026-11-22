@@ -18,7 +18,7 @@ function serviceRpcClient() {
   return createClient(url, getSupabaseSecretKey('superkey'));
 }
 
-async function handler(req) {
+async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
@@ -32,7 +32,7 @@ async function handler(req) {
     if (!gate.ok) return gate.response;
 
     const today = new Date().toISOString().slice(0, 10);
-    let body = {};
+    let body: { force?: boolean } = {};
     try { body = await req.json(); } catch (_e) { /* no body / cron sends {} */ }
 
     const activePlans = await base44.asServiceRole.entities.RecurringInvestment.filter({ active: true });
@@ -90,8 +90,9 @@ async function handler(req) {
       duplicates,
       auth_mode: gate.mode,
     });
-  } catch (error) {
-    return Response.json({ error: error?.message || 'Auto-Invest run failed.' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Auto-Invest run failed.';
+    return Response.json({ error: message }, { status: 500 });
   }
 }
 
