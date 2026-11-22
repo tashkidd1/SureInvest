@@ -64,7 +64,7 @@ export async function recordSnapshotForUser(base44: any, userId: string, account
     const cur = h.currency || 'BWP';
     return s + nativeToBwp((Number(h.units) || 0) * price, cur, rate);
   }, 0);
-  const cost = holdings.reduce((s, h) => {
+  const cost = holdings.reduce((s: number, h: any) => {
     const prevBwp = Number(h.avg_cost_bwp);
     const unitBwp = Number.isFinite(prevBwp) && prevBwp > 0
       ? prevBwp
