@@ -43,10 +43,10 @@ function normalizeStock(raw: any, currency: string | null): { price: number; pre
 // Fetch the full BSE stocks snapshot — one shared request for the whole
 // exchange (preferred over per-stock calls). Quotes are keyed by Mansa ticker.
 export async function fetchBseSnapshot(apiKey: string): Promise<any> {
-  const quotes = {};
+  const quotes: Record<string, any> = {};
   let offset = 0;
   let pages = 0;
-  let meta = null;
+  let meta: any = null;
   while (pages < MAX_PAGES) {
     const res = await fetchWithTimeout(`${API_BASE}?limit=${PAGE_LIMIT}&offset=${offset}`, {
       headers: { Authorization: apiKey },
@@ -91,7 +91,7 @@ export async function fetchBseIndexHistory(apiKey: string, exchange: string, cod
   // Points already arrive oldest-first; keep only what a chart needs.
   const points = raw
     .map((p: any) => ({ date: p.trade_date, value: Number(p.value) }))
-    .filter((p) => p.date && Number.isFinite(p.value));
+    .filter((p: { date: string; value: number }) => p.date && Number.isFinite(p.value));
   return {
     ok: true, httpStatus: 200, points,
     name: (body.data && body.data.name) || code,
