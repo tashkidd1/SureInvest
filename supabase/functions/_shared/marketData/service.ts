@@ -3,6 +3,7 @@
 // request budgets, writes Investment / ExchangeRate caches, and returns a
 // unified result. Provider failures are isolated; cached prices are retained.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { getSupabaseSecretKey } from '../base44Compat.ts';
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
 import {
@@ -16,7 +17,7 @@ import {
 } from './requestBudget.ts';
 
 function rpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
 }
 
 async function reserveTwelveCredits(credits) {
