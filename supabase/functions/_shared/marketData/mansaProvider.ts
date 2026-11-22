@@ -15,7 +15,7 @@ const API_BASE = 'https://mansaapi.com/api/v1/markets/exchanges/BSE/stocks';
 const PAGE_LIMIT = 200; // docs: limit is capped at 200; BSE total is ~41 → one page
 const MAX_PAGES = 3;    // hard stop so pagination can never blow the budget
 // SureInvest curated tickers that differ from Mansa's canonical BSE tickers.
-const TICKER_ALIASES = {
+const TICKER_ALIASES: Record<string, string> = {
   // Map our stored tickers to Mansa's actual response tickers
   LETL: 'LETS',      // Letshego Holdings
   SECH: 'SECHABA',   // Sechaba Brewery Holdings
