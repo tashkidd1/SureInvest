@@ -8,7 +8,7 @@ function serviceRpcClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
 }
 
-async function handler(req) {
+async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
@@ -49,8 +49,9 @@ async function handler(req) {
       });
       if (releaseError) console.error('[refreshMarketData] lock release failed', releaseError.message);
     }
-  } catch (error) {
-    return Response.json({ error: error.message || 'Refresh failed', status: 'error' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Refresh failed';
+    return Response.json({ error: message, status: 'error' }, { status: 500 });
   }
 }
 
