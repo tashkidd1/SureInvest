@@ -35,6 +35,16 @@ const HISTORY_BACKFILL_PER_RUN = 2;
 const INDEX_REFRESH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
+type MarketRefreshSection = {
+  status: string;
+  attempted: string[] | boolean;
+  updated: number;
+  failed: number;
+  stale_cache?: boolean;
+  message: string;
+  [key: string]: any;
+};
+
 function nextHistory(inv: any, price: number, today: string, backfillPrices: number[] | null): Record<string, any> {
   const existing = Array.isArray(inv.historical_prices) ? inv.historical_prices : [];
   if (backfillPrices && backfillPrices.length) {
@@ -280,7 +290,14 @@ async function refreshFx(base44: any, apiKey: string, now: string): Promise<numb
 
 export async function runMarketRefresh(base44: any, config: { twelveDataKey: string | null; mansaKey: string | null }): Promise<any> {
   const now = new Date().toISOString();
-  const result = {
+  const result: {
+    status: string;
+    fetched_at: string;
+    global: MarketRefreshSection;
+    bse: MarketRefreshSection;
+    fx_rate: number | null;
+    message: string;
+  } = {
     status: 'ok',
     fetched_at: now,
     global: { status: 'pending', attempted: false, updated: 0, failed: 0, message: '' },
