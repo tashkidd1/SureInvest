@@ -9,7 +9,7 @@ import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 // passive holder's performance chart blank on days they didn't act.
 //
 // Auth: CRON_SECRET bearer token, or an authenticated admin. Anonymous rejected.
-async function handler(req) {
+async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
@@ -46,8 +46,9 @@ async function handler(req) {
       total: seen.size,
       auth_mode: gate.mode,
     });
-  } catch (error) {
-    return Response.json({ error: error?.message || 'Snapshot job failed.' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Snapshot job failed.';
+    return Response.json({ error: message }, { status: 500 });
   }
 }
 
