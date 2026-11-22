@@ -22,7 +22,7 @@ export async function recordSnapshot(base44: any, userId: string, accountType: s
     const cur = h.currency || 'BWP';
     return s + nativeToBwp((Number(h.units) || 0) * price, cur, rate);
   }, 0);
-  const cost = holdings.reduce((s, h) => {
+  const cost = holdings.reduce((s: number, h: any) => {
     const prevBwp = Number(h.avg_cost_bwp);
     const unitBwp = Number.isFinite(prevBwp) && prevBwp > 0
       ? prevBwp
@@ -75,7 +75,7 @@ export async function recordSnapshotForUser(base44: any, userId: string, account
   const total = invested + cash;
   const pl = invested - cost;
   const date = new Date().toISOString().slice(0, 10);
-  const todays = recent.find((s) => String(s.date || '').slice(0, 10) === date);
+  const todays = recent.find((s: any) => String(s.date || '').slice(0, 10) === date);
   if (todays) {
     return base44.asServiceRole.entities.PortfolioSnapshot.update(todays.id, {
       total_value: total, invested_value: invested, cash_value: cash, pl,
