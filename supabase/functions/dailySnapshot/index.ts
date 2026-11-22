@@ -16,7 +16,7 @@ async function handler(req: Request): Promise<Response> {
     // validation. A CRON_SECRET is not a Supabase user access token.
     let gate = requireSchedulerOrAdmin(req, null);
     if (!gate.ok) {
-      let user = null;
+      let user: { id: string; email?: string; role: string } | null = null;
       try { user = await base44.auth.me(); } catch (_e) { user = null; }
       gate = requireSchedulerOrAdmin(req, user);
     }
