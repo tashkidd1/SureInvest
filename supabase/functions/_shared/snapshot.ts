@@ -59,7 +59,7 @@ export async function recordSnapshotForUser(base44: any, userId: string, account
     base44.asServiceRole.entities.CashAccount.filter({ created_by_id: userId, account_type: acct }),
     base44.asServiceRole.entities.PortfolioSnapshot.filter({ created_by_id: userId, account_type: acct }, '-created_date', 50),
   ]);
-  const invested = holdings.reduce((s, h) => {
+  const invested = holdings.reduce((s: number, h: any) => {
     const price = Number(h.current_price) || Number(h.avg_cost) || 0;
     const cur = h.currency || 'BWP';
     return s + nativeToBwp((Number(h.units) || 0) * price, cur, rate);
