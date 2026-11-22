@@ -59,7 +59,7 @@ export async function fetchTimeSeries(apiKey: string, symbol: string, outputsize
   // Twelve Data returns most-recent-first; charts want oldest-first.
   const prices = data.values
     .map((v: any) => Number(v.close))
-    .filter((n) => Number.isFinite(n))
+    .filter((n: number) => Number.isFinite(n))
     .reverse();
   return { ok: true, httpStatus: res.status, prices };
 }
