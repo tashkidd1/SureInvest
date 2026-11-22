@@ -6,7 +6,7 @@ import { fetchWithTimeout } from './http.ts';
 const API_BASE = 'https://api.twelvedata.com/quote';
 // Maps a raw Twelve Data quote into the internal market-data shape.
 // Returns null for error/invalid quotes so the cache is never corrupted.
-function mapQuote(raw) {
+function mapQuote(raw: any): { price: number; change: number; percent: number; previous: number; currency: string | null } | null {
   if (!raw || typeof raw !== 'object' || raw.status === 'error') return null;
   const price = Number(raw.close);
   if (!Number.isFinite(price)) return null;
@@ -25,7 +25,7 @@ function mapQuote(raw) {
 }
 // Fetch quotes for the given symbols in one batched request.
 // Returns { ok, httpStatus, error } or { ok: true, quotes: { SYMBOL: quote } }.
-export async function fetchQuotes(apiKey, symbols) {
+export async function fetchQuotes(apiKey: string, symbols: string[]): Promise<any> {
   const url = `${API_BASE}?symbol=${encodeURIComponent(symbols.join(','))}&apikey=${apiKey}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) {
@@ -35,7 +35,7 @@ export async function fetchQuotes(apiKey, symbols) {
   if (data && data.status === 'error') {
     return { ok: false, httpStatus: res.status, error: data.message || 'Twelve Data returned an error', quotes: {} };
   }
-  const quotes = {};
+  const quotes: Record<string, NonNullable<ReturnType<typeof mapQuote>>> = {};
   for (const symbol of symbols) {
     // Batched responses are keyed by symbol; single-symbol responses are the quote itself.
     const raw = symbols.length > 1 ? data[symbol] : data;
@@ -48,7 +48,7 @@ export async function fetchQuotes(apiKey, symbols) {
 // trendline once — after that, refreshGlobal appends one point per day).
 // Twelve Data's /time_series is a core market-data endpoint (included on
 // the free Basic plan), unlike /statistics (fundamentals, paid-only).
-export async function fetchTimeSeries(apiKey, symbol, outputsize = 30) {
+export async function fetchTimeSeries(apiKey: string, symbol: string, outputsize = 30): Promise<any> {
   const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=${outputsize}&apikey=${apiKey}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) return { ok: false, httpStatus: res.status, prices: [] };
@@ -58,7 +58,7 @@ export async function fetchTimeSeries(apiKey, symbol, outputsize = 30) {
   }
   // Twelve Data returns most-recent-first; charts want oldest-first.
   const prices = data.values
-    .map((v) => Number(v.close))
+    .map((v: any) => Number(v.close))
     .filter((n) => Number.isFinite(n))
     .reverse();
   return { ok: true, httpStatus: res.status, prices };
@@ -66,7 +66,7 @@ export async function fetchTimeSeries(apiKey, symbol, outputsize = 30) {
 
 // Fetch the USD/BWP exchange rate. Any failure returns ok:false so the
 // caller keeps the cached/fallback rate — never zeroed.
-export async function fetchUsdBwpRate(apiKey) {
+export async function fetchUsdBwpRate(apiKey: string): Promise<any> {
   const url = `${API_BASE}?symbol=${encodeURIComponent('USD/BWP')}&apikey=${apiKey}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) return { ok: false, httpStatus: res.status, rate: null };
