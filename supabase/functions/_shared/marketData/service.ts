@@ -77,7 +77,7 @@ async function refreshGlobal(base44: any, apiKey: string, now: string): Promise<
   if (!targets.length) {
     return { status: 'no_change', attempted: [], updated: 0, failed: 0, message: 'No global symbols found to refresh.' };
   }
-  const symbols = targets.map((t) => t.ticker);
+  const symbols = targets.map((t: any) => t.ticker);
   if (!(await reserveTwelveCredits(symbols.length))) {
     return { status: 'deferred', attempted: [], updated: 0, failed: 0, stale_cache: true,
       message: `Global: Twelve Data daily credit budget reached (${DAILY_TWELVE_CREDIT_CEILING}) — cached prices retained.` };
@@ -108,7 +108,7 @@ async function refreshGlobal(base44: any, apiKey: string, now: string): Promise<
     const q = result.quotes[inv.ticker];
     if (!q) { failed += 1; continue; }
     try {
-      let backfillPrices = null;
+      let backfillPrices: number[] | null = null;
       if ((!inv.historical_prices || inv.historical_prices.length < 5) && backfillsLeft > 0) {
         const reserved = await reserveTwelveCredits(1);
         if (reserved) {
