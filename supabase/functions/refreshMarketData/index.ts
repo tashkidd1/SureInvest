@@ -1,20 +1,24 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest } from '../_shared/base44Compat.ts';
-import { secrets } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, getSupabaseSecretKey, secrets } from '../_shared/base44Compat.ts';
 import { runMarketRefresh } from '../_shared/marketData/service.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 function serviceRpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
 }
 
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
-    let user = null;
-    try { user = await base44.auth.me(); } catch (_e) { user = null; }
-    const gate = requireSchedulerOrAdmin(req, user);
+    // Fast-path the shared scheduler secret before attempting user-JWT
+    // validation. A CRON_SECRET is not a Supabase user access token.
+    let gate = requireSchedulerOrAdmin(req, null);
+    if (!gate.ok) {
+      let user = null;
+      try { user = await base44.auth.me(); } catch (_e) { user = null; }
+      gate = requireSchedulerOrAdmin(req, user);
+    }
     if (!gate.ok) return gate.response;
 
     const ownerToken = crypto.randomUUID();

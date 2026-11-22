@@ -1,5 +1,5 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, getSupabaseSecretKey } from '../_shared/base44Compat.ts';
 import { recordSnapshotForUser } from '../_shared/snapshot.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -15,16 +15,20 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 function serviceRpcClient() {
   const url = Deno.env.get('SUPABASE_URL')!;
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  return createClient(url, key);
+  return createClient(url, getSupabaseSecretKey('superkey'));
 }
 
 async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
+    // Fast-path the shared scheduler secret before attempting user-JWT
+    // validation. A CRON_SECRET is not a Supabase user access token.
     let user = null;
-    try { user = await base44.auth.me(); } catch (_e) { user = null; }
-    const gate = requireSchedulerOrAdmin(req, user);
+    let gate = requireSchedulerOrAdmin(req, null);
+    if (!gate.ok) {
+      try { user = await base44.auth.me(); } catch (_e) { user = null; }
+      gate = requireSchedulerOrAdmin(req, user);
+    }
     if (!gate.ok) return gate.response;
 
     const today = new Date().toISOString().slice(0, 10);
