@@ -23,7 +23,7 @@ async function handler(req: Request): Promise<Response> {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
     // validation. A CRON_SECRET is not a Supabase user access token.
-    let user = null;
+    let user: { id: string; email?: string; role: string } | null = null;
     let gate = requireSchedulerOrAdmin(req, null);
     if (!gate.ok) {
       try { user = await base44.auth.me(); } catch (_e) { user = null; }
