@@ -36,14 +36,14 @@ async function handler(req: Request): Promise<Response> {
     try { body = await req.json(); } catch (_e) { /* no body / cron sends {} */ }
 
     const activePlans = await base44.asServiceRole.entities.RecurringInvestment.filter({ active: true });
-    let due = activePlans.filter((p) => (p.next_date || '') <= today);
+    let due = activePlans.filter((p: any) => (p.next_date || '') <= today);
 
     if (body?.force) {
       if (gate.mode !== 'admin' || !user) {
         return Response.json({ error: 'force requires an authenticated admin.' }, { status: 403 });
       }
       // Test mode: ignore next_date, but only for this admin's own plans.
-      due = activePlans.filter((p) => p.created_by_id === user.id);
+      due = activePlans.filter((p: any) => p.created_by_id === user.id);
     }
 
     const sb = serviceRpcClient();
