@@ -2,8 +2,7 @@
 // Coordinates Twelve Data (global) and Mansa (BSE), applies centralized
 // request budgets, writes Investment / ExchangeRate caches, and returns a
 // unified result. Provider failures are isolated; cached prices are retained.
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { getSupabaseSecretKey } from '../base44Compat.ts';
+import { createSupabaseServiceClient } from '../base44Compat.ts';
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
 import {
@@ -17,7 +16,7 @@ import {
 } from './requestBudget.ts';
 
 function rpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
 async function reserveTwelveCredits(credits: number): Promise<boolean> {
