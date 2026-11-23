@@ -1,11 +1,10 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest, getSupabaseSecretKey, secrets } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, createSupabaseServiceClient, secrets } from '../_shared/base44Compat.ts';
 import { runMarketRefresh } from '../_shared/marketData/service.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
 function serviceRpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
 async function handler(req: Request): Promise<Response> {
