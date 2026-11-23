@@ -4,6 +4,7 @@
 // backed by Supabase. This lets the original function bodies run with only
 // their import line changed.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createApiKeyOnlyFetch } from './apiKeyOnlyFetch.ts';
 
 // entity name -> real Postgres table name
 const TABLES: Record<string, string> = {
@@ -201,6 +202,28 @@ export function getSupabaseSecretKey(name = 'superkey'): string {
   return key;
 }
 
+
+/**
+ * Creates a privileged Supabase client.
+ *
+ * New sb_secret_ API keys are not JWTs: supabase-js normally mirrors its API
+ * key into Authorization: Bearer as well as apikey. The custom fetch strips
+ * that Authorization header, leaving the API key on apikey only.
+ *
+ * The local-only legacy service_role fallback remains JWT-based and therefore
+ * keeps the SDK's default Authorization behaviour.
+ */
+export function createSupabaseServiceClient(): any {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = getSupabaseSecretKey('superkey');
+  if (serviceKey.startsWith('sb_secret_')) {
+    return createClient(supabaseUrl, serviceKey, {
+      global: { fetch: createApiKeyOnlyFetch() },
+    });
+  }
+  return createClient(supabaseUrl, serviceKey);
+}
+
 // Mirrors Base44's `createClientFromRequest(req)`: builds a user-scoped
 // client (RLS applies, using the caller's JWT) plus an `asServiceRole`
 // client (RLS bypassed, using the named Supabase secret API key) from the same request.
@@ -209,13 +232,12 @@ export function createClientFromRequest(req: Request) {
   // Keep the legacy anon key for the user-scoped client during the separate
   // publishable-key migration; it has the same low-privilege/RLS role.
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const serviceKey = getSupabaseSecretKey('superkey');
   const authHeader = req.headers.get('Authorization') || '';
 
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const serviceClient = createClient(supabaseUrl, serviceKey);
+  const serviceClient = createSupabaseServiceClient();
 
   let cachedUser: any = null;
   let userChecked = false;
