@@ -1,8 +1,7 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest, getSupabaseSecretKey } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, createSupabaseServiceClient } from '../_shared/base44Compat.ts';
 import { recordSnapshotForUser } from '../_shared/snapshot.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 // Scheduled job (not user-invoked): executes every active RecurringInvestment
 // plan whose next_date has arrived. Auto-Invest is a Demo-account feature for
 // now, same as Goals and executeTrade's Real-account gate.
@@ -14,8 +13,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // client_ref autoinvest-<planId>-<cycleDate>).
 
 function serviceRpcClient() {
-  const url = Deno.env.get('SUPABASE_URL')!;
-  return createClient(url, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
 async function handler(req: Request): Promise<Response> {
