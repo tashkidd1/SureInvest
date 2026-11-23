@@ -15,19 +15,19 @@ const API_BASE = 'https://mansaapi.com/api/v1/markets/exchanges/BSE/stocks';
 const PAGE_LIMIT = 200; // docs: limit is capped at 200; BSE total is ~41 → one page
 const MAX_PAGES = 3;    // hard stop so pagination can never blow the budget
 // SureInvest curated tickers that differ from Mansa's canonical BSE tickers.
-const TICKER_ALIASES = {
+const TICKER_ALIASES: Record<string, string> = {
   // Map our stored tickers to Mansa's actual response tickers
   LETL: 'LETS',      // Letshego Holdings
   SECH: 'SECHABA',   // Sechaba Brewery Holdings
   FNBP: 'FNBB',      // First National Bank
   ENPC: 'ENGE',      // Engen Botswana
 };
-export function toMansaTicker(ticker) {
+export function toMansaTicker(ticker: string): string {
   return TICKER_ALIASES[ticker] || ticker;
 }
 // Normalize one raw Mansa stock row into the internal market-data shape.
 // Returns null for invalid rows so the cache is never corrupted.
-function normalizeStock(raw, currency) {
+function normalizeStock(raw: any, currency: string | null): { price: number; previous_close: number; daily_change: number; daily_change_percent: number; currency: string } | null {
   const price = Number(raw && raw.price);
   if (!Number.isFinite(price) || price <= 0) return null;
   const change = Number.isFinite(Number(raw.change)) ? Number(raw.change) : 0;
@@ -42,11 +42,11 @@ function normalizeStock(raw, currency) {
 }
 // Fetch the full BSE stocks snapshot — one shared request for the whole
 // exchange (preferred over per-stock calls). Quotes are keyed by Mansa ticker.
-export async function fetchBseSnapshot(apiKey) {
-  const quotes = {};
+export async function fetchBseSnapshot(apiKey: string): Promise<any> {
+  const quotes: Record<string, any> = {};
   let offset = 0;
   let pages = 0;
-  let meta = null;
+  let meta: any = null;
   while (pages < MAX_PAGES) {
     const res = await fetchWithTimeout(`${API_BASE}?limit=${PAGE_LIMIT}&offset=${offset}`, {
       headers: { Authorization: apiKey },
@@ -61,7 +61,7 @@ export async function fetchBseSnapshot(apiKey) {
     }
     const rows = Array.isArray(body.data) ? body.data : [];
     meta = body.meta || meta;
-    for (const raw of rows) {
+    for (const raw of rows as any[]) {
       const norm = normalizeStock(raw, meta && meta.currency);
       if (norm && raw.ticker) quotes[raw.ticker] = norm;
     }
@@ -76,7 +76,7 @@ export async function fetchBseSnapshot(apiKey) {
 // Fetch daily history for a BSE index (free-tier endpoint, unlike the
 // paywalled per-stock /history route which returned 403 on a free key).
 // GET /api/v1/markets/exchanges/{exchange}/indices/{code}/history?range=1Y
-export async function fetchBseIndexHistory(apiKey, exchange, code, range = '1Y') {
+export async function fetchBseIndexHistory(apiKey: string, exchange: string, code: string, range = '1Y'): Promise<any> {
   const url = `https://mansaapi.com/api/v1/markets/exchanges/${exchange}/indices/${code}/history?range=${range}`;
   const res = await fetchWithTimeout(url, { headers: { Authorization: apiKey } }, 30000);
   if (!res.ok) {
@@ -90,8 +90,8 @@ export async function fetchBseIndexHistory(apiKey, exchange, code, range = '1Y')
   const raw = (body.data && Array.isArray(body.data.points)) ? body.data.points : [];
   // Points already arrive oldest-first; keep only what a chart needs.
   const points = raw
-    .map((p) => ({ date: p.trade_date, value: Number(p.value) }))
-    .filter((p) => p.date && Number.isFinite(p.value));
+    .map((p: any) => ({ date: p.trade_date, value: Number(p.value) }))
+    .filter((p: { date: string; value: number }) => p.date && Number.isFinite(p.value));
   return {
     ok: true, httpStatus: 200, points,
     name: (body.data && body.data.name) || code,

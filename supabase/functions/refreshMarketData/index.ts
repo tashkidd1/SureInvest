@@ -1,21 +1,20 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest, getSupabaseSecretKey, secrets } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, createSupabaseServiceClient, secrets } from '../_shared/base44Compat.ts';
 import { runMarketRefresh } from '../_shared/marketData/service.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
 function serviceRpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
-async function handler(req) {
+async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
     // validation. A CRON_SECRET is not a Supabase user access token.
     let gate = requireSchedulerOrAdmin(req, null);
     if (!gate.ok) {
-      let user = null;
+      let user: { id: string; email?: string; role: string } | null = null;
       try { user = await base44.auth.me(); } catch (_e) { user = null; }
       gate = requireSchedulerOrAdmin(req, user);
     }
@@ -49,8 +48,9 @@ async function handler(req) {
       });
       if (releaseError) console.error('[refreshMarketData] lock release failed', releaseError.message);
     }
-  } catch (error) {
-    return Response.json({ error: error.message || 'Refresh failed', status: 'error' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Refresh failed';
+    return Response.json({ error: message, status: 'error' }, { status: 500 });
   }
 }
 

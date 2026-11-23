@@ -1,8 +1,7 @@
 import { serveFunction } from '../_shared/cors.ts';
-import { createClientFromRequest, getSupabaseSecretKey } from '../_shared/base44Compat.ts';
+import { createClientFromRequest, createSupabaseServiceClient } from '../_shared/base44Compat.ts';
 import { recordSnapshotForUser } from '../_shared/snapshot.ts';
 import { requireSchedulerOrAdmin } from '../_shared/schedulerAuth.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 // Scheduled job (not user-invoked): executes every active RecurringInvestment
 // plan whose next_date has arrived. Auto-Invest is a Demo-account feature for
 // now, same as Goals and executeTrade's Real-account gate.
@@ -14,16 +13,15 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // client_ref autoinvest-<planId>-<cycleDate>).
 
 function serviceRpcClient() {
-  const url = Deno.env.get('SUPABASE_URL')!;
-  return createClient(url, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
-async function handler(req) {
+async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     // Fast-path the shared scheduler secret before attempting user-JWT
     // validation. A CRON_SECRET is not a Supabase user access token.
-    let user = null;
+    let user: { id: string; email?: string; role: string } | null = null;
     let gate = requireSchedulerOrAdmin(req, null);
     if (!gate.ok) {
       try { user = await base44.auth.me(); } catch (_e) { user = null; }
@@ -32,18 +30,18 @@ async function handler(req) {
     if (!gate.ok) return gate.response;
 
     const today = new Date().toISOString().slice(0, 10);
-    let body = {};
+    let body: { force?: boolean } = {};
     try { body = await req.json(); } catch (_e) { /* no body / cron sends {} */ }
 
     const activePlans = await base44.asServiceRole.entities.RecurringInvestment.filter({ active: true });
-    let due = activePlans.filter((p) => (p.next_date || '') <= today);
+    let due = activePlans.filter((p: any) => (p.next_date || '') <= today);
 
     if (body?.force) {
       if (gate.mode !== 'admin' || !user) {
         return Response.json({ error: 'force requires an authenticated admin.' }, { status: 403 });
       }
       // Test mode: ignore next_date, but only for this admin's own plans.
-      due = activePlans.filter((p) => p.created_by_id === user.id);
+      due = activePlans.filter((p: any) => p.created_by_id === user.id);
     }
 
     const sb = serviceRpcClient();
@@ -90,8 +88,9 @@ async function handler(req) {
       duplicates,
       auth_mode: gate.mode,
     });
-  } catch (error) {
-    return Response.json({ error: error?.message || 'Auto-Invest run failed.' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Auto-Invest run failed.';
+    return Response.json({ error: message }, { status: 500 });
   }
 }
 

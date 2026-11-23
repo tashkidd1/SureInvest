@@ -2,8 +2,7 @@
 // Coordinates Twelve Data (global) and Mansa (BSE), applies centralized
 // request budgets, writes Investment / ExchangeRate caches, and returns a
 // unified result. Provider failures are isolated; cached prices are retained.
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { getSupabaseSecretKey } from '../base44Compat.ts';
+import { createSupabaseServiceClient } from '../base44Compat.ts';
 import { fetchQuotes, fetchUsdBwpRate, fetchTimeSeries } from './twelveDataProvider.ts';
 import { fetchBseSnapshot, fetchBseIndexHistory, toMansaTicker } from './mansaProvider.ts';
 import {
@@ -17,10 +16,10 @@ import {
 } from './requestBudget.ts';
 
 function rpcClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, getSupabaseSecretKey('superkey'));
+  return createSupabaseServiceClient();
 }
 
-async function reserveTwelveCredits(credits) {
+async function reserveTwelveCredits(credits: number): Promise<boolean> {
   const { data, error } = await rpcClient().rpc('reserve_twelve_data_credits', {
     p_credits: credits,
     p_daily_limit: DAILY_TWELVE_CREDIT_CEILING,
@@ -35,7 +34,17 @@ const HISTORY_BACKFILL_PER_RUN = 2;
 const INDEX_REFRESH_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
-function nextHistory(inv, price, today, backfillPrices) {
+type MarketRefreshSection = {
+  status: string;
+  attempted: string[] | boolean;
+  updated: number;
+  failed: number;
+  stale_cache?: boolean;
+  message: string;
+  [key: string]: any;
+};
+
+function nextHistory(inv: any, price: number, today: string, backfillPrices: number[] | null): Record<string, any> {
   const existing = Array.isArray(inv.historical_prices) ? inv.historical_prices : [];
   if (backfillPrices && backfillPrices.length) {
     return { historical_prices: backfillPrices.slice(-90), history_last_appended: today };
@@ -44,7 +53,7 @@ function nextHistory(inv, price, today, backfillPrices) {
   return { historical_prices: [...existing, price].slice(-90), history_last_appended: today };
 }
 
-async function refreshGlobal(base44, apiKey, now) {
+async function refreshGlobal(base44: any, apiKey: string, now: string): Promise<any> {
   // Throttle: skip network if a successful global run was recent — serve cache.
   const fresh = await recentGlobalQuotes(base44, GLOBAL_MIN_INTERVAL_MS);
   if (fresh) {
@@ -61,13 +70,13 @@ async function refreshGlobal(base44, apiKey, now) {
   const today = now.slice(0, 10);
   const rows = await base44.asServiceRole.entities.Investment.filter({ market: 'global' });
   const targets = rows
-    .filter((r) => GLOBAL_SYMBOLS.includes(r.ticker))
-    .sort((a, b) => (a.last_updated || '').localeCompare(b.last_updated || ''))
+    .filter((r: any) => GLOBAL_SYMBOLS.includes(r.ticker))
+    .sort((a: any, b: any) => (a.last_updated || '').localeCompare(b.last_updated || ''))
     .slice(0, GLOBAL_PER_CALL);
   if (!targets.length) {
     return { status: 'no_change', attempted: [], updated: 0, failed: 0, message: 'No global symbols found to refresh.' };
   }
-  const symbols = targets.map((t) => t.ticker);
+  const symbols = targets.map((t: any) => t.ticker);
   if (!(await reserveTwelveCredits(symbols.length))) {
     return { status: 'deferred', attempted: [], updated: 0, failed: 0, stale_cache: true,
       message: `Global: Twelve Data daily credit budget reached (${DAILY_TWELVE_CREDIT_CEILING}) — cached prices retained.` };
@@ -94,11 +103,11 @@ async function refreshGlobal(base44, apiKey, now) {
   let failed = 0;
   let backfillsLeft = HISTORY_BACKFILL_PER_RUN;
   const updatedSymbols = [];
-  for (const inv of targets) {
+  for (const inv of targets as any[]) {
     const q = result.quotes[inv.ticker];
     if (!q) { failed += 1; continue; }
     try {
-      let backfillPrices = null;
+      let backfillPrices: number[] | null = null;
       if ((!inv.historical_prices || inv.historical_prices.length < 5) && backfillsLeft > 0) {
         const reserved = await reserveTwelveCredits(1);
         if (reserved) {
@@ -126,7 +135,7 @@ async function refreshGlobal(base44, apiKey, now) {
       });
       updated += 1;
       updatedSymbols.push(inv.ticker);
-    } catch (_e) {
+    } catch (_e: unknown) {
       failed += 1;
     }
   }
@@ -142,7 +151,7 @@ async function refreshGlobal(base44, apiKey, now) {
   };
 }
 
-async function refreshBse(base44, apiKey, now) {
+async function refreshBse(base44: any, apiKey: string, now: string): Promise<any> {
   const today = now.slice(0, 10);
   const gate = await assertMansaRequestAllowed(base44, 'bse_snapshot', SNAPSHOT_MIN_INTERVAL_MS);
   if (!gate.allowed) {
@@ -153,7 +162,7 @@ async function refreshBse(base44, apiKey, now) {
         updated: 0,
         failed: 0,
         stale_cache: true,
-        message: `BSE: snapshot ingested ${gate.fresh.ageMinutes} min ago — cached prices retained (quota conserved).`,
+        message: `BSE: snapshot ingested ${gate.fresh?.ageMinutes ?? 0} min ago — cached prices retained (quota conserved).`,
       };
     }
     return {
@@ -186,7 +195,7 @@ async function refreshBse(base44, apiKey, now) {
   let updated = 0;
   let failed = 0;
   const updatedSymbols = [];
-  for (const inv of rows) {
+  for (const inv of rows as any[]) {
     const q = result.quotes[toMansaTicker(inv.ticker)];
     if (!q) continue;
     try {
@@ -217,7 +226,7 @@ async function refreshBse(base44, apiKey, now) {
   return { status, attempted: true, updated, failed, updatedSymbols, stale_cache: updated === 0, message };
 }
 
-async function refreshBseIndex(base44, apiKey, now) {
+async function refreshBseIndex(base44: any, apiKey: string, now: string): Promise<void> {
   // Budget + freshness gate — index calls count toward the daily Mansa ceiling.
   const gate = await assertMansaRequestAllowed(base44, 'bse_index', INDEX_REFRESH_MIN_INTERVAL_MS);
   if (!gate.allowed) return; // conserve quota; cache retained
@@ -245,7 +254,7 @@ async function refreshBseIndex(base44, apiKey, now) {
   }
 }
 
-async function refreshFx(base44, apiKey, now) {
+async function refreshFx(base44: any, apiKey: string, now: string): Promise<number | null> {
   const fresh = await recentFxRefresh(base44, FX_MIN_INTERVAL_MS);
   if (fresh) return null; // keep cached rate
 
@@ -260,7 +269,7 @@ async function refreshFx(base44, apiKey, now) {
     });
     if (result.ok && result.rate) {
       const existing = await base44.asServiceRole.entities.ExchangeRate.list('-last_updated', 10);
-      const row = existing.find((r) => r.base === 'USD' && r.quote === 'BWP');
+      const row = existing.find((r: any) => r.base === 'USD' && r.quote === 'BWP');
       if (row) {
         await base44.asServiceRole.entities.ExchangeRate.update(row.id, {
           rate: result.rate, source: 'twelve_data', last_updated: now,
@@ -278,13 +287,20 @@ async function refreshFx(base44, apiKey, now) {
   return null;
 }
 
-export async function runMarketRefresh(base44, config) {
+export async function runMarketRefresh(base44: any, config: { twelveDataKey: string | null; mansaKey: string | null }): Promise<any> {
   const now = new Date().toISOString();
-  const result = {
+  const result: {
+    status: string;
+    fetched_at: string;
+    global: MarketRefreshSection;
+    bse: MarketRefreshSection;
+    fx_rate: number | null;
+    message: string;
+  } = {
     status: 'ok',
     fetched_at: now,
-    global: null,
-    bse: null,
+    global: { status: 'pending', attempted: false, updated: 0, failed: 0, message: '' },
+    bse: { status: 'pending', attempted: false, updated: 0, failed: 0, message: '' },
     fx_rate: null,
     message: '',
   };
@@ -297,10 +313,11 @@ export async function runMarketRefresh(base44, config) {
   } else {
     try {
       result.global = await refreshGlobal(base44, config.twelveDataKey, now);
-    } catch (e) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'error';
       result.global = {
         status: 'provider_error', attempted: false, updated: 0, failed: 0, stale_cache: true,
-        message: `Global: refresh failed (${e.message || 'error'}). Cached prices retained.`,
+        message: `Global: refresh failed (${errorMessage}). Cached prices retained.`,
       };
     }
   }
@@ -313,10 +330,11 @@ export async function runMarketRefresh(base44, config) {
   } else {
     try {
       result.bse = await refreshBse(base44, config.mansaKey, now);
-    } catch (e) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'error';
       result.bse = {
         status: 'provider_error', attempted: false, updated: 0, failed: 0, stale_cache: true,
-        message: `BSE: refresh failed (${e.message || 'error'}). Cached prices retained.`,
+        message: `BSE: refresh failed (${errorMessage}). Cached prices retained.`,
       };
     }
   }
