@@ -11,7 +11,7 @@
     "typecheck": "tsc -p ./jsconfig.json --noEmit --allowJs --checkJs false",
     "preview": "vite preview",
     "test:db": "node scripts/run-db-tests.mjs",
-    "test:fn": "deno test --allow-env --no-check supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts",
+    "test:fn": "deno test --allow-env --no-check supabase/functions/_shared/schedulerAuth.test.ts supabase/functions/_shared/marketData/requestBudget.test.ts supabase/functions/_shared/apiKeyOnlyFetch.test.ts",
     "test:e2e": "echo 'See tests/e2e/workflows.md — Playwright harness optional (npm i -D @playwright/test)'",
     "test": "npm run test:fn"
   },
